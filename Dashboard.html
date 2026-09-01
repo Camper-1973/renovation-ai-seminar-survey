@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <base target="_top">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f4f4f1; color: #222; font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Noto Sans JP", sans-serif; }
+    .wrap { max-width: 1400px; margin: 0 auto; padding: 28px; }
+    .header { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 22px; }
+    h1 { font-size: 34px; margin: 0; }
+    .subtitle { margin-top: 6px; color: #666; font-size: 16px; }
+    .right { display: flex; align-items: center; gap: 14px; }
+    .count { font-size: 50px; font-weight: 800; line-height: 1; }
+    .count small { font-size: 17px; font-weight: 500; color: #777; }
+    .refresh { border: 1px solid #bbb; background: #fff; border-radius: 10px; padding: 11px 15px; font-size: 14px; cursor: pointer; }
+    .hero { background: #222; color: #fff; border-radius: 16px; padding: 25px 28px; margin-bottom: 18px; }
+    .hero-label { font-size: 14px; opacity: .7; margin-bottom: 6px; }
+    .hero-title { font-size: 30px; font-weight: 800; margin-bottom: 10px; }
+    .hero-sub { font-size: 16px; opacity: .86; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
+    .card { background: #fff; border: 1px solid #ddd; border-radius: 14px; padding: 19px; }
+    .card h2 { margin: 0 0 15px; font-size: 18px; }
+    .ranking { display: grid; gap: 10px; }
+    .rank { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 9px; }
+    .number { width: 30px; height: 30px; border-radius: 50%; background: #eee; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+    .rank-name { font-size: 15px; }
+    .rank-value { font-size: 25px; font-weight: 800; }
+    .matrix { background: #fff; border: 1px solid #ddd; border-radius: 14px; padding: 20px; }
+    .matrix h2 { margin: 0 0 4px; font-size: 21px; }
+    .matrix-description { color: #777; margin-bottom: 17px; }
+    .matrix-row { display: grid; grid-template-columns: minmax(180px, 1.8fr) 1fr 1fr 1fr; gap: 8px; align-items: center; padding: 10px 0; border-top: 1px solid #eee; }
+    .matrix-head { font-weight: 700; color: #666; border-top: 0; }
+    .cat { font-weight: 600; }
+    .cell { text-align: center; padding: 7px; border-radius: 7px; background: #f1f1ef; font-size: 17px; font-weight: 700; }
+    .cell.strong { background: #222; color: #fff; }
+    .waiting { padding: 80px 20px; text-align: center; font-size: 24px; color: #777; }
+    .updated { text-align: right; color: #999; font-size: 12px; margin-top: 10px; }
+    .error { padding: 30px; background: #fff; border: 1px solid #ddd; border-radius: 14px; color: #900; }
+    @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } .matrix-row { grid-template-columns: 1.7fr .7fr .7fr .7fr; } h1 { font-size: 26px; } .header { align-items: flex-start; } .right { flex-direction: column; align-items: flex-end; } }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div>
+      <h1>今日の会場｜リノベ業界 × AI</h1>
+      <div class="subtitle">いま、人に依存している仕事はどこなのか？</div>
+    </div>
+    <div class="right">
+      <div class="count"><span id="total">0</span> <small>回答</small></div>
+      <button class="refresh" id="refreshButton" type="button">最新の集計を読む</button>
+    </div>
+  </div>
+
+  <div id="content"><div class="waiting">集計を読み込んでいます…</div></div>
+  <div class="updated" id="updated"></div>
+</div>
+
+<script>
+function loadDashboard() {
+  const button = document.getElementById('refreshButton');
+  button.disabled = true;
+  button.textContent = '集計中…';
+
+  google.script.run
+    .withSuccessHandler(data => {
+      renderDashboard(data);
+      button.disabled = false;
+      button.textContent = '最新の集計を読む';
+    })
+    .withFailureHandler(error => {
+      document.getElementById('content').innerHTML = '<div class="error">集計を読み込めませんでした。' + escapeHtml(error && error.message ? error.message : '') + '</div>';
+      button.disabled = false;
+      button.textContent = 'もう一度読む';
+    })
+    .getDashboardData();
+}
+
+function renderDashboard(data) {
+  document.getElementById('total').textContent = data.total || 0;
+  const content = document.getElementById('content');
+
+  if (!data.total) {
+    content.innerHTML = '<div class="waiting">まだ回答がありません。</div>';
+    setUpdated();
+    return;
+  }
+
+  const strongest = data.overlap && data.overlap.length ? data.overlap[0] : null;
+  let html = '';
+
+  if (strongest) {
+    html += '<div class="hero"><div class="hero-label">今日もっとも回答が集中しているテーマ</div><div class="hero-title">' + escapeHtml(strongest.category) + '</div><div class="hero-sub">属人化 ' + strongest.dependent + '　繰り返し ' + strongest.repetitive + '　AIへの期待 ' + strongest.ai + '</div></div>';
+  }
+
+  html += '<div class="grid">' +
+    rankingCard('人に依存している仕事', data.topDependent) +
+    rankingCard('何度も繰り返している仕事', data.topRepetitive) +
+    rankingCard('AIで楽にしたい仕事', data.topAi) +
+    '</div>';
+
+  html += '<div class="matrix"><h2>属人化 × 繰り返し × AIへの期待</h2><div class="matrix-description">3つが重なるほど、仕組み化の余地が大きい仕事かもしれません。</div><div class="matrix-row matrix-head"><div>仕事</div><div>属人化</div><div>繰り返し</div><div>AI期待</div></div>';
+
+  const values = data.overlap.flatMap(item => [item.dependent, item.repetitive, item.ai]);
+  const max = Math.max(1, ...values);
+
+  data.overlap.forEach((item, index) => {
+    html += '<div class="matrix-row"><div class="cat">' + (index + 1) + '. ' + escapeHtml(item.category) + '</div>' + matrixCell(item.dependent, max) + matrixCell(item.repetitive, max) + matrixCell(item.ai, max) + '</div>';
+  });
+
+  html += '</div>';
+  content.innerHTML = html;
+  setUpdated();
+}
+
+function rankingCard(title, items) {
+  const rows = (items || []).map((item, index) => '<div class="rank"><div class="number">' + (index + 1) + '</div><div class="rank-name">' + escapeHtml(item.name) + '</div><div class="rank-value">' + item.value + '</div></div>').join('');
+  return '<div class="card"><h2>' + escapeHtml(title) + '</h2><div class="ranking">' + (rows || 'まだ回答がありません') + '</div></div>';
+}
+
+function matrixCell(value, max) {
+  const strong = value / max >= 0.65 ? ' strong' : '';
+  return '<div class="cell' + strong + '">' + value + '</div>';
+}
+
+function setUpdated() {
+  document.getElementById('updated').textContent = '集計時刻 ' + new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function escapeHtml(value) {
+  return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+document.getElementById('refreshButton').addEventListener('click', loadDashboard);
+loadDashboard();
+</script>
+</body>
+</html>
