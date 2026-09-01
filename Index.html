@@ -5,147 +5,110 @@
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; background: #f4f4f1; color: #222; font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Noto Sans JP", sans-serif; }
-    .wrap { max-width: 680px; margin: 0 auto; padding: 18px 14px 40px; }
-    h1 { margin: 0 0 6px; font-size: 24px; line-height: 1.35; }
-    .lead { margin: 0 0 16px; color: #666; font-size: 14px; line-height: 1.6; }
-    .card { background: #fff; border: 1px solid #ddd; border-radius: 14px; padding: 15px; margin-bottom: 11px; }
-    .q { font-weight: 700; font-size: 15px; margin-bottom: 10px; line-height: 1.45; }
-    .small { margin-left: 4px; font-weight: 400; color: #777; font-size: 12px; }
-    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    input[type="text"] { width: 100%; min-height: 46px; border-radius: 9px; border: 1px solid #bbb; padding: 0 12px; font-size: 16px; background: #fff; }
-    .choices { display: grid; gap: 7px; }
-    .choice { display: block; position: relative; }
+    .wrap { max-width: 720px; margin: auto; padding: 14px 12px 34px; overflow-x: hidden; }
+    h1 { font-size: 24px; margin: 0 0 5px; line-height: 1.35; }
+    .lead { font-size: 13px; color: #666; line-height: 1.55; margin: 0 0 12px; }
+    .card { background: #fff; border: 1px solid #ddd; border-radius: 13px; padding: 13px; margin-bottom: 9px; min-width: 0; }
+    .q { font-weight: 800; font-size: 15px; margin-bottom: 9px; }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; min-width: 0; }
+    .two > * { min-width: 0; }
+    input[type="text"] { display: block; width: 100%; max-width: 100%; min-width: 0; height: 42px; border: 1px solid #bbb; border-radius: 8px; padding: 0 10px; font-size: 15px; background: #fff; }
+    .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .choice { position: relative; min-width: 0; }
     .choice input { position: absolute; opacity: 0; pointer-events: none; }
-    .choice span { display: flex; align-items: center; min-height: 42px; padding: 9px 11px; border: 1px solid #ccc; border-radius: 9px; background: #fafafa; font-size: 14px; line-height: 1.35; cursor: pointer; }
-    .choice input:checked + span { border-color: #222; background: #222; color: #fff; }
-    .submit { width: 100%; min-height: 54px; border: 0; border-radius: 12px; background: #222; color: #fff; font-weight: 700; font-size: 17px; cursor: pointer; }
+    .choice span { display: flex; align-items: center; justify-content: center; text-align: center; min-height: 44px; border: 1px solid #ccc; border-radius: 8px; background: #fafafa; padding: 7px; font-size: 12px; line-height: 1.25; cursor: pointer; }
+    .choice input:checked + span { background: #222; color: #fff; border-color: #222; }
+    .submit { width: 100%; height: 52px; border: 0; border-radius: 11px; background: #222; color: #fff; font-size: 16px; font-weight: 800; cursor: pointer; }
     .submit:disabled { opacity: .45; cursor: wait; }
-    .message { min-height: 24px; margin: 10px 2px 0; font-size: 14px; text-align: center; }
-    .success { background: #fff; border: 1px solid #ddd; border-radius: 14px; padding: 38px 20px; text-align: center; margin-top: 20px; }
-    .success h2 { margin: 0 0 10px; font-size: 23px; }
-    .success p { margin: 0; color: #666; line-height: 1.7; }
-    .version { text-align: center; color: #aaa; font-size: 11px; margin-top: 16px; }
-    @media (max-width: 480px) { .two { grid-template-columns: 1fr; } h1 { font-size: 22px; } .card { padding: 13px; } .choice span { font-size: 13px; } }
+    .msg { text-align: center; font-size: 13px; min-height: 20px; margin-top: 8px; color: #8a1f11; }
+    .result { background: #fff; border: 1px solid #ddd; border-radius: 16px; padding: 24px 18px; text-align: center; }
+    .result .emoji { font-size: 48px; }
+    .result h2 { font-size: 27px; margin: 8px 0; }
+    .result .copy { font-size: 15px; line-height: 1.65; color: #444; }
+    .result .hint { margin: 18px 0 0; background: #f1f1ef; border-radius: 12px; padding: 13px; font-weight: 700; line-height: 1.55; }
+    .links { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
+    .links a { padding: 10px 13px; border-radius: 9px; border: 1px solid #bbb; color: #222; text-decoration: none; background: #fff; }
+    .version { text-align: center; color: #aaa; font-size: 11px; margin-top: 14px; }
+    @media (max-width: 520px) { .two { grid-template-columns: 1fr; } .wrap { padding: 10px 9px 28px; } .card { padding: 11px; } .choice span { font-size: 11px; min-height: 41px; } input[type="text"] { font-size: 14px; padding: 0 8px; } h1 { font-size: 21px; } }
   </style>
 </head>
 <body>
 <div class="wrap" id="app">
-  <h1>30秒｜リノベ業界 × AI</h1>
-  <p class="lead">今日ここにいる皆さんの「仕事の現在地」を教えてください。最後に会場全体の回答を見てみます。</p>
-
+  <h1>1分｜あなたのリノベ業界タイプ診断</h1>
+  <p class="lead">5問で、今日のあなたの「狙い」と仕事スタイルを診断します。最後に会場全体も集計します。</p>
   <form id="surveyForm">
-    <div class="card">
-      <div class="q">会社名・お名前</div>
-      <div class="two">
-        <input type="text" id="company" placeholder="会社名" autocomplete="organization" required>
-        <input type="text" id="name" placeholder="お名前" autocomplete="name" required>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="q">1｜普段どの立場で仕事をしていますか？ <span class="small">複数OK</span></div>
-      <div class="choices" id="roles"></div>
-    </div>
-
-    <div class="card">
-      <div class="q">2｜人に依存・属人化していると感じる仕事は？ <span class="small">2つまで</span></div>
-      <div class="choices" id="dependent"></div>
-    </div>
-
-    <div class="card">
-      <div class="q">3｜同じ説明・確認・入力を何度もしている仕事は？ <span class="small">2つまで</span></div>
-      <div class="choices" id="repetitive"></div>
-    </div>
-
-    <div class="card">
-      <div class="q">4｜AIで一つだけ楽にできるなら？ <span class="small">1つ</span></div>
-      <div class="choices" id="aiChoice"></div>
-    </div>
-
-    <button type="submit" id="submitButton" class="submit">回答する</button>
-    <div id="message" class="message" aria-live="polite"></div>
+    <div class="card"><div class="q">会社名・お名前</div><div class="two"><input id="company" type="text" placeholder="会社名" autocomplete="organization" required><input id="name" type="text" placeholder="お名前" autocomplete="name" required></div></div>
+    <div class="card"><div class="q">1｜あなたの立場は？</div><div class="choices" id="role"></div></div>
+    <div class="card"><div class="q">2｜今日ここに来た、一番近い理由は？</div><div class="choices" id="purpose"></div></div>
+    <div class="card"><div class="q">3｜仕事で一番テンションが上がる瞬間は？</div><div class="choices" id="excite"></div></div>
+    <div class="card"><div class="q">4｜今、会社として一番伸ばしたいのは？</div><div class="choices" id="growth"></div></div>
+    <div class="card"><div class="q">5｜今日この場で、自分が人に提供できるものは？</div><div class="choices" id="offer"></div></div>
+    <button type="submit" id="submitButton" class="submit">診断する</button>
+    <div id="msg" class="msg" aria-live="polite"></div>
   </form>
   <div class="version">v<?= appVersion ?></div>
 </div>
 
 <script>
-const ROLES = ['リノベーション事業者・工務店・施工会社','メーカー','建材店・商社・流通','設計・デザイン','その他'];
-const CATEGORIES = ['顧客との相談・ヒアリング','見積・価格判断','設計・仕様決定','商品・技術情報を探す','発注・納期確認','工程・現場管理','社内情報・過去案件を探す','問い合わせ対応'];
+const ROLES = { reno:'リノベ・施工・設計', maker:'メーカー', sales:'販売・流通' };
+const PURPOSE = { deal:'商談・仕事につながる相手を見つけたい', info:'新しい商品・技術・事例を仕入れたい', people:'人脈を広げたい・久しぶりの人に会いたい', trend:'業界の動きや他社の話を聞きたい', fun:'なんとなく面白そうだった', sent:'会社・上司に行ってこいと言われた', none:'特に目的はない。来てから考える' };
+const EXCITE = { win:'案件や提案が決まった', discover:'いい商品・技術を見つけた', solve:'難しい問題を解決した', happy:'お客さんに喜ばれた', connect:'新しい人とつながった' };
+const GROWTH = { sales:'営業・受注', proposal:'提案力', knowledge:'商品・技術知識', network:'人脈・協業', system:'業務効率・仕組み化' };
+const OFFER = { job:'案件・仕事', product:'商品・技術情報', price:'価格・調達力', knowhow:'施工・設計ノウハウ', intro:'人や会社の紹介' };
 
-function buildChoices(containerId, items, type) {
-  const container = document.getElementById(containerId);
-  items.forEach(item => {
-    const label = document.createElement('label');
-    label.className = 'choice';
-    const input = document.createElement('input');
-    input.type = type;
-    input.name = containerId;
-    input.value = item;
-    const span = document.createElement('span');
-    span.textContent = item;
-    label.appendChild(input);
-    label.appendChild(span);
-    container.appendChild(label);
-  });
+function buildChoices(id, obj) {
+  document.getElementById(id).innerHTML = Object.entries(obj).map(([value, label]) => `<label class="choice"><input type="radio" name="${id}" value="${value}"><span>${label}</span></label>`).join('');
 }
 
-buildChoices('roles', ROLES, 'checkbox');
-buildChoices('dependent', CATEGORIES, 'checkbox');
-buildChoices('repetitive', CATEGORIES, 'checkbox');
-buildChoices('aiChoice', CATEGORIES, 'radio');
+buildChoices('role', ROLES);
+buildChoices('purpose', PURPOSE);
+buildChoices('excite', EXCITE);
+buildChoices('growth', GROWTH);
+buildChoices('offer', OFFER);
 
-function selected(containerId) {
-  return Array.from(document.querySelectorAll('#' + containerId + ' input:checked')).map(input => input.value);
+function selectedValue(id) {
+  const item = document.querySelector(`#${id} input:checked`);
+  return item ? item.value : '';
 }
 
-function limitCheckboxes(containerId, max) {
-  document.getElementById(containerId).addEventListener('change', event => {
-    if (!event.target.matches('input[type="checkbox"]')) return;
-    const checked = document.querySelectorAll('#' + containerId + ' input:checked');
-    if (checked.length > max) event.target.checked = false;
-  });
+function showError(text) {
+  document.getElementById('msg').textContent = text;
 }
-
-limitCheckboxes('dependent', 2);
-limitCheckboxes('repetitive', 2);
 
 document.getElementById('surveyForm').addEventListener('submit', event => {
   event.preventDefault();
+  const data = {
+    company: document.getElementById('company').value.trim(),
+    name: document.getElementById('name').value.trim(),
+    role: selectedValue('role'),
+    purpose: selectedValue('purpose'),
+    excite: selectedValue('excite'),
+    growth: selectedValue('growth'),
+    offer: selectedValue('offer')
+  };
 
-  const company = document.getElementById('company').value.trim();
-  const name = document.getElementById('name').value.trim();
-  const roles = selected('roles');
-  const dependent = selected('dependent');
-  const repetitive = selected('repetitive');
-  const ai = document.querySelector('#aiChoice input:checked');
-  const message = document.getElementById('message');
-
-  if (!company || !name) return showError('会社名とお名前を入力してください。');
-  if (!roles.length) return showError('普段の立場を選んでください。');
-  if (!dependent.length) return showError('属人化している仕事を選んでください。');
-  if (!repetitive.length) return showError('繰り返している仕事を選んでください。');
-  if (!ai) return showError('AIで楽にしたい仕事を選んでください。');
+  if (!data.company || !data.name || !data.role || !data.purpose || !data.excite || !data.growth || !data.offer) {
+    showError('すべて回答してください。');
+    return;
+  }
 
   const button = document.getElementById('submitButton');
   button.disabled = true;
   button.textContent = '送信中…';
-  message.textContent = '';
+  showError('');
 
   google.script.run
-    .withSuccessHandler(() => {
-      document.getElementById('app').innerHTML = '<div class="success"><h2>回答ありがとうございました！</h2><p>このあと会場のみんなの回答を見てみます。</p></div>';
+    .withSuccessHandler(result => {
+      const type = result.type;
+      document.getElementById('app').innerHTML = `<div class="result"><div class="emoji">${type.emoji}</div><div>あなたは…</div><h2>${type.name}</h2><div class="copy">${type.copy}</div><div class="hint">${type.hint}</div><div class="links"><a href="?mode=dashboard" target="_blank">会場全体を集計する</a></div></div>`;
     })
     .withFailureHandler(error => {
       button.disabled = false;
-      button.textContent = '回答する';
+      button.textContent = '診断する';
       showError(error && error.message ? error.message : '送信できませんでした。もう一度お試しください。');
     })
-    .submitResponse({ company, name, roles, dependent, repetitive, aiChoice: ai.value });
+    .submitResponse(data);
 });
-
-function showError(text) {
-  document.getElementById('message').textContent = text;
-}
 </script>
 </body>
 </html>
