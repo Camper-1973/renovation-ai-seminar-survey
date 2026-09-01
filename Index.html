@@ -27,8 +27,7 @@
     .result h2 { font-size: 27px; margin: 8px 0; }
     .result .copy { font-size: 15px; line-height: 1.65; color: #444; }
     .result .hint { margin: 18px 0 0; background: #f1f1ef; border-radius: 12px; padding: 13px; font-weight: 700; line-height: 1.55; }
-    .links { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
-    .links a { padding: 10px 13px; border-radius: 9px; border: 1px solid #bbb; color: #222; text-decoration: none; background: #fff; }
+    .result .note { margin-top: 16px; color: #777; font-size: 12px; line-height: 1.5; }
     .version { text-align: center; color: #aaa; font-size: 11px; margin-top: 14px; }
     @media (max-width: 520px) { .two { grid-template-columns: 1fr; } .wrap { padding: 10px 9px 28px; } .card { padding: 11px; } .choice span { font-size: 11px; min-height: 41px; } input[type="text"] { font-size: 14px; padding: 0 8px; } h1 { font-size: 21px; } }
   </style>
@@ -36,7 +35,7 @@
 <body>
 <div class="wrap" id="app">
   <h1>1分｜あなたのリノベ業界タイプ診断</h1>
-  <p class="lead">5問で、今日のあなたの「狙い」と仕事スタイルを診断します。最後に会場全体も集計します。</p>
+  <p class="lead">5問で、今日のあなたの「狙い」と仕事スタイルを診断します。会場全体の集計結果は講演内でご紹介します。</p>
   <? if (eventInfo && eventInfo.label) { ?><div class="event"><?= eventInfo.label ?></div><? } ?>
   <form id="surveyForm">
     <div class="card"><div class="q">会社名・お名前</div><div class="two"><input id="company" type="text" placeholder="会社名" autocomplete="organization" required><input id="name" type="text" placeholder="お名前" autocomplete="name" required></div></div>
@@ -104,8 +103,7 @@ document.getElementById('surveyForm').addEventListener('submit', event => {
   google.script.run
     .withSuccessHandler(result => {
       const type = result.type;
-      const dashboardUrl = '?mode=dashboard&event=' + encodeURIComponent(EVENT_ID);
-      document.getElementById('app').innerHTML = `<div class="result"><div class="emoji">${type.emoji}</div><div>あなたは…</div><h2>${type.name}</h2><div class="copy">${type.copy}</div><div class="hint">${type.hint}</div><div class="links"><a href="${dashboardUrl}" target="_blank">この回の集計を見る</a></div></div>`;
+      document.getElementById('app').innerHTML = `<div class="result"><div class="emoji">${type.emoji}</div><div>あなたは…</div><h2>${type.name}</h2><div class="copy">${type.copy}</div><div class="hint">${type.hint}</div><div class="note">会場全体の集計結果は講演内でご紹介します。</div></div>`;
     })
     .withFailureHandler(error => {
       button.disabled = false;
