@@ -1,31 +1,87 @@
-const APP_VERSION = '0.1.0';
+const APP_VERSION = '0.3.0';
 const SHEET_NAME = '回答データ';
 const PROPERTY_SPREADSHEET_ID = 'SURVEY_SPREADSHEET_ID';
+const SPREADSHEET_NAME = 'リノベ業界タイプ診断_回答データ';
 
-const ROLES = [
-  'リノベーション事業者・工務店・施工会社',
-  'メーカー',
-  '建材店・商社・流通',
-  '設計・デザイン',
-  'その他'
-];
+const ROLES = {
+  reno: 'リノベ・施工・設計',
+  maker: 'メーカー',
+  sales: '販売・流通'
+};
 
-const CATEGORIES = [
-  '顧客との相談・ヒアリング',
-  '見積・価格判断',
-  '設計・仕様決定',
-  '商品・技術情報を探す',
-  '発注・納期確認',
-  '工程・現場管理',
-  '社内情報・過去案件を探す',
-  '問い合わせ対応'
-];
+const PURPOSE = {
+  deal: '商談・仕事につながる相手を見つけたい',
+  info: '新しい商品・技術・事例を仕入れたい',
+  people: '人脈を広げたい・久しぶりの人に会いたい',
+  trend: '業界の動きや他社の話を聞きたい',
+  fun: 'なんとなく面白そうだった',
+  sent: '会社・上司に行ってこいと言われた',
+  none: '特に目的はない。来てから考える'
+};
 
-/**
- * 初回セットアップ。
- * 回答保存用スプレッドシートを自動作成し、Script Properties にIDを保存する。
- * Apps Script エディタから最初に1回だけ実行する。
- */
+const EXCITE = {
+  win: '案件や提案が決まった',
+  discover: 'いい商品・技術を見つけた',
+  solve: '難しい問題を解決した',
+  happy: 'お客さんに喜ばれた',
+  connect: '新しい人とつながった'
+};
+
+const GROWTH = {
+  sales: '営業・受注',
+  proposal: '提案力',
+  knowledge: '商品・技術知識',
+  network: '人脈・協業',
+  system: '業務効率・仕組み化'
+};
+
+const OFFER = {
+  job: '案件・仕事',
+  product: '商品・技術情報',
+  price: '価格・調達力',
+  knowhow: '施工・設計ノウハウ',
+  intro: '人や会社の紹介'
+};
+
+const TYPES = {
+  hunter: {
+    name: 'ゴリゴリ開拓タイプ',
+    emoji: '🔥',
+    copy: 'チャンスを見つけたら前へ。商談・受注・次の一手をつくる行動派。',
+    hint: '交流会では「今どんな案件を探してます？」から入ると強い。'
+  },
+  scout: {
+    name: '新商品ハンタータイプ',
+    emoji: '🔍',
+    copy: '新しい商品・技術・事例を集めて、使える形に変える探索派。',
+    hint: 'メーカー担当者に「最近いちばん面白い商品は？」と聞いてみよう。'
+  },
+  connector: {
+    name: 'つなぐ人タイプ',
+    emoji: '🤝',
+    copy: '人と人、会社と会社をつなぐことで価値をつくるネットワーカー。',
+    hint: '「誰か紹介できそうな人いません？」が今日の魔法の言葉。'
+  },
+  strategist: {
+    name: '現場の軍師タイプ',
+    emoji: '🧠',
+    copy: '情報を整理して、最適な組み合わせや判断をつくる分析・提案派。',
+    hint: '違う立場の人に「その判断、何を基準にしてます？」と聞くと面白い。'
+  },
+  solver: {
+    name: '解決屋タイプ',
+    emoji: '🛠️',
+    copy: '困りごとを見ると放っておけない。現場の詰まりをほどく実務派。',
+    hint: '「最近いちばん困った現場って何でした？」から話すと盛り上がる。'
+  },
+  observer: {
+    name: '様子見スカウトタイプ',
+    emoji: '👀',
+    copy: '最初から決め打ちせず、場を見て面白いものを拾う観察派。',
+    hint: 'せっかく来たので、今日は一人だけ「予想外に面白い人」を見つけて帰ろう。'
+  }
+};
+
 function setup() {
   const properties = PropertiesService.getScriptProperties();
   const existingId = properties.getProperty(PROPERTY_SPREADSHEET_ID);
@@ -34,194 +90,179 @@ function setup() {
     try {
       const existing = SpreadsheetApp.openById(existingId);
       initializeResponseSheet_(existing);
-      return {
-        spreadsheetId: existing.getId(),
-        spreadsheetUrl: existing.getUrl(),
-        reused: true
-      };
-    } catch (error) {
-      // 既存IDが無効な場合は新規作成へ進む
-    }
+      return { spreadsheetId: existing.getId(), spreadsheetUrl: existing.getUrl(), reused: true };
+    } catch (error) {}
   }
 
-  const spreadsheet = SpreadsheetApp.create(
-    'リノベ業界AI課題アンケート_回答データ'
-  );
-
-  properties.setProperty(
-    PROPERTY_SPREADSHEET_ID,
-    spreadsheet.getId()
-  );
-
+  const spreadsheet = SpreadsheetApp.create(SPREADSHEET_NAME);
+  properties.setProperty(PROPERTY_SPREADSHEET_ID, spreadsheet.getId());
   initializeResponseSheet_(spreadsheet);
-
-  return {
-    spreadsheetId: spreadsheet.getId(),
-    spreadsheetUrl: spreadsheet.getUrl(),
-    reused: false
-  };
+  return { spreadsheetId: spreadsheet.getId(), spreadsheetUrl: spreadsheet.getUrl(), reused: false };
 }
 
 function doGet(e) {
   const mode = e && e.parameter ? e.parameter.mode : '';
   const fileName = mode === 'dashboard' ? 'Dashboard' : 'Index';
-  const title = mode === 'dashboard'
-    ? 'リアルタイム集計｜リノベ業界 × AI'
-    : '30秒｜リノベ業界 × AI';
-
+  const title = mode === 'dashboard' ? '会場全体のリアルタイム集計' : '1分｜リノベ業界タイプ診断';
   const template = HtmlService.createTemplateFromFile(fileName);
   template.appVersion = APP_VERSION;
-
-  return template
-    .evaluate()
+  return template.evaluate()
     .setTitle(title)
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-/**
- * 参加者の回答を保存する。
- */
 function submitResponse(data) {
   validateResponse_(data);
-
+  const typeKey = diagnoseType_(data);
+  const type = TYPES[typeKey];
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
 
   try {
     const sheet = getResponseSheet_();
-
-    const roles = normalizeArray_(data.roles);
-    const dependent = normalizeArray_(data.dependent);
-    const repetitive = normalizeArray_(data.repetitive);
-
     sheet.appendRow([
       new Date(),
       sanitizeText_(data.company, 100),
       sanitizeText_(data.name, 100),
-      roles.join(' / '),
-      dependent.join(' / '),
-      repetitive.join(' / '),
-      sanitizeText_(data.aiChoice, 100),
+      data.role,
+      ROLES[data.role],
+      data.purpose,
+      PURPOSE[data.purpose],
+      data.excite,
+      EXCITE[data.excite],
+      data.growth,
+      GROWTH[data.growth],
+      data.offer,
+      OFFER[data.offer],
+      typeKey,
+      type.name,
       APP_VERSION
     ]);
 
-    return {
-      success: true,
-      totalResponses: Math.max(0, sheet.getLastRow() - 1)
-    };
+    return { success: true, totalResponses: Math.max(0, sheet.getLastRow() - 1), typeKey, type };
   } finally {
     lock.releaseLock();
   }
 }
 
-/**
- * ダッシュボード用の集計データを返す。
- * 回答者名・会社名は返さない。
- */
 function getDashboardData() {
   const sheet = getResponseSheet_();
   const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return createEmptyDashboardData_();
 
-  if (lastRow <= 1) {
-    return createEmptyDashboardData_();
-  }
+  const rows = sheet.getRange(2, 1, lastRow - 1, 16).getValues();
+  const result = createEmptyDashboardData_();
+  result.total = rows.length;
 
-  const values = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+  rows.forEach(row => {
+    const role = String(row[3] || '');
+    const purpose = String(row[5] || '');
+    const growth = String(row[9] || '');
+    const offer = String(row[11] || '');
+    const typeKey = String(row[13] || '');
 
-  const result = {
-    total: values.length,
-    roles: createCounter_(ROLES),
-    dependent: createCounter_(CATEGORIES),
-    repetitive: createCounter_(CATEGORIES),
-    aiChoice: createCounter_(CATEGORIES),
-    roleBreakdown: {}
-  };
+    increment_(result.typeCounts, typeKey);
+    increment_(result.roleCounts, role);
+    increment_(result.purposeCounts, purpose);
+    increment_(result.growthCounts, growth);
+    increment_(result.offerCounts, offer);
 
-  ROLES.forEach(role => {
-    result.roleBreakdown[role] = {
-      respondents: 0,
-      dependent: createCounter_(CATEGORIES),
-      repetitive: createCounter_(CATEGORIES),
-      aiChoice: createCounter_(CATEGORIES)
-    };
-  });
-
-  values.forEach(row => {
-    const roles = splitStoredValues_(row[3]);
-    const dependent = splitStoredValues_(row[4]);
-    const repetitive = splitStoredValues_(row[5]);
-    const aiChoice = String(row[6] || '').trim();
-
-    incrementItems_(result.roles, roles);
-    incrementItems_(result.dependent, dependent);
-    incrementItems_(result.repetitive, repetitive);
-
-    if (Object.prototype.hasOwnProperty.call(result.aiChoice, aiChoice)) {
-      result.aiChoice[aiChoice] += 1;
+    if (result.roleBreakdown[role]) {
+      result.roleBreakdown[role].count += 1;
+      increment_(result.roleBreakdown[role].types, typeKey);
+      increment_(result.roleBreakdown[role].purposes, purpose);
+      increment_(result.roleBreakdown[role].growths, growth);
+      increment_(result.roleBreakdown[role].offers, offer);
     }
-
-    roles.forEach(role => {
-      const bucket = result.roleBreakdown[role];
-      if (!bucket) return;
-
-      bucket.respondents += 1;
-      incrementItems_(bucket.dependent, dependent);
-      incrementItems_(bucket.repetitive, repetitive);
-
-      if (Object.prototype.hasOwnProperty.call(bucket.aiChoice, aiChoice)) {
-        bucket.aiChoice[aiChoice] += 1;
-      }
-    });
   });
 
-  result.topDependent = getTopItems_(result.dependent, 3);
-  result.topRepetitive = getTopItems_(result.repetitive, 3);
-  result.topAi = getTopItems_(result.aiChoice, 3);
+  result.typeRanking = ranking_(result.typeCounts, TYPES, result.total, 6);
+  result.purposeRanking = ranking_(result.purposeCounts, PURPOSE, result.total, 5);
+  result.growthRanking = ranking_(result.growthCounts, GROWTH, result.total, 5);
+  result.offerRanking = ranking_(result.offerCounts, OFFER, result.total, 5);
 
-  result.overlap = CATEGORIES.map(category => ({
-    category,
-    dependent: result.dependent[category],
-    repetitive: result.repetitive[category],
-    ai: result.aiChoice[category],
-    score:
-      result.dependent[category] +
-      result.repetitive[category] +
-      result.aiChoice[category]
-  })).sort((a, b) => b.score - a.score);
+  Object.keys(result.roleBreakdown).forEach(role => {
+    const bucket = result.roleBreakdown[role];
+    bucket.typeRanking = ranking_(bucket.types, TYPES, bucket.count, 3);
+    bucket.purposeRanking = ranking_(bucket.purposes, PURPOSE, bucket.count, 3);
+    bucket.growthRanking = ranking_(bucket.growths, GROWTH, bucket.count, 3);
+  });
 
   return result;
 }
 
-/**
- * 管理用。保存先スプレッドシートのURLを確認する。
- */
 function getSpreadsheetInfo() {
   const spreadsheet = getSpreadsheet_();
-  return {
-    spreadsheetId: spreadsheet.getId(),
-    spreadsheetUrl: spreadsheet.getUrl()
-  };
+  return { spreadsheetId: spreadsheet.getId(), spreadsheetUrl: spreadsheet.getUrl() };
+}
+
+function diagnoseType_(data) {
+  const score = { hunter: 0, scout: 0, connector: 0, strategist: 0, solver: 0, observer: 0 };
+
+  if (data.purpose === 'deal') score.hunter += 3;
+  if (data.purpose === 'info' || data.purpose === 'trend') score.scout += 2;
+  if (data.purpose === 'people') score.connector += 3;
+  if (data.purpose === 'sent' || data.purpose === 'none' || data.purpose === 'fun') score.observer += 3;
+
+  if (data.excite === 'win') score.hunter += 2;
+  if (data.excite === 'discover') score.scout += 3;
+  if (data.excite === 'solve') score.solver += 3;
+  if (data.excite === 'happy') { score.solver += 1; score.strategist += 1; }
+  if (data.excite === 'connect') score.connector += 3;
+
+  if (data.growth === 'sales') score.hunter += 2;
+  if (data.growth === 'proposal') score.strategist += 3;
+  if (data.growth === 'knowledge') score.scout += 2;
+  if (data.growth === 'network') score.connector += 2;
+  if (data.growth === 'system') { score.strategist += 2; score.solver += 1; }
+
+  if (data.offer === 'job') score.hunter += 2;
+  if (data.offer === 'product') score.scout += 2;
+  if (data.offer === 'price') score.strategist += 2;
+  if (data.offer === 'knowhow') score.solver += 2;
+  if (data.offer === 'intro') score.connector += 2;
+
+  return Object.entries(score).sort((a, b) => b[1] - a[1])[0][0];
+}
+
+function initializeResponseSheet_(spreadsheet) {
+  let sheet = spreadsheet.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    const first = spreadsheet.getSheets()[0];
+    if (spreadsheet.getSheets().length === 1 && first.getLastRow() === 0) {
+      sheet = first;
+      sheet.setName(SHEET_NAME);
+    } else {
+      sheet = spreadsheet.insertSheet(SHEET_NAME);
+    }
+  }
+
+  const headers = ['回答日時','会社名','名前','立場キー','立場','参加理由キー','参加理由','高揚ポイントキー','高揚ポイント','伸ばしたいことキー','伸ばしたいこと','提供できることキー','提供できること','タイプキー','診断タイプ','アプリバージョン'];
+
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+    [160,180,130,90,170,110,320,120,240,120,170,120,190,100,190,120].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+  }
+}
+
+function validateResponse_(data) {
+  if (!data || typeof data !== 'object') throw new Error('回答データがありません。');
+  if (!sanitizeText_(data.company, 100)) throw new Error('会社名を入力してください。');
+  if (!sanitizeText_(data.name, 100)) throw new Error('お名前を入力してください。');
+  if (!ROLES[data.role]) throw new Error('立場を選んでください。');
+  if (!PURPOSE[data.purpose]) throw new Error('今日ここに来た理由を選んでください。');
+  if (!EXCITE[data.excite]) throw new Error('テンションが上がる瞬間を選んでください。');
+  if (!GROWTH[data.growth]) throw new Error('会社として伸ばしたいことを選んでください。');
+  if (!OFFER[data.offer]) throw new Error('提供できるものを選んでください。');
 }
 
 function getSpreadsheet_() {
-  const id = PropertiesService
-    .getScriptProperties()
-    .getProperty(PROPERTY_SPREADSHEET_ID);
-
-  if (!id) {
-    throw new Error(
-      '初期設定が未完了です。Apps Scriptエディタで setup() を1回実行してください。'
-    );
-  }
-
-  try {
-    return SpreadsheetApp.openById(id);
-  } catch (error) {
-    throw new Error(
-      '回答保存用スプレッドシートを開けません。setup() を再実行してください。'
-    );
-  }
+  const id = PropertiesService.getScriptProperties().getProperty(PROPERTY_SPREADSHEET_ID);
+  if (!id) throw new Error('初期設定が未完了です。Apps Scriptエディタで setup() を1回実行してください。');
+  return SpreadsheetApp.openById(id);
 }
 
 function getResponseSheet_() {
@@ -230,145 +271,26 @@ function getResponseSheet_() {
   return spreadsheet.getSheetByName(SHEET_NAME);
 }
 
-function initializeResponseSheet_(spreadsheet) {
-  let sheet = spreadsheet.getSheetByName(SHEET_NAME);
-
-  if (!sheet) {
-    const firstSheet = spreadsheet.getSheets()[0];
-
-    if (
-      spreadsheet.getSheets().length === 1 &&
-      firstSheet.getLastRow() === 0
-    ) {
-      sheet = firstSheet;
-      sheet.setName(SHEET_NAME);
-    } else {
-      sheet = spreadsheet.insertSheet(SHEET_NAME);
-    }
-  }
-
-  const headers = [
-    '回答日時',
-    '会社名',
-    '名前',
-    '立場',
-    '属人化している仕事',
-    '繰り返している仕事',
-    'AIで楽にしたい仕事',
-    'アプリバージョン'
-  ];
-
-  if (sheet.getLastRow() === 0) {
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    sheet.setFrozenRows(1);
-    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
-
-    [160, 180, 130, 300, 320, 320, 280, 120]
-      .forEach((width, index) => sheet.setColumnWidth(index + 1, width));
-  }
+function createEmptyDashboardData_() {
+  const roleBreakdown = {};
+  Object.keys(ROLES).forEach(key => {
+    roleBreakdown[key] = { label: ROLES[key], count: 0, types: {}, purposes: {}, growths: {}, offers: {}, typeRanking: [], purposeRanking: [], growthRanking: [] };
+  });
+  return { total: 0, typeCounts: {}, roleCounts: {}, purposeCounts: {}, growthCounts: {}, offerCounts: {}, typeRanking: [], purposeRanking: [], growthRanking: [], offerRanking: [], roleBreakdown, types: TYPES, roles: ROLES, purpose: PURPOSE, growth: GROWTH, offer: OFFER, appVersion: APP_VERSION };
 }
 
-function validateResponse_(data) {
-  if (!data || typeof data !== 'object') {
-    throw new Error('回答データがありません。');
-  }
+function increment_(obj, key) {
+  if (!key) return;
+  obj[key] = (obj[key] || 0) + 1;
+}
 
-  const company = sanitizeText_(data.company, 100);
-  const name = sanitizeText_(data.name, 100);
-  const roles = normalizeArray_(data.roles);
-  const dependent = normalizeArray_(data.dependent);
-  const repetitive = normalizeArray_(data.repetitive);
-  const aiChoice = sanitizeText_(data.aiChoice, 100);
-
-  if (!company) throw new Error('会社名を入力してください。');
-  if (!name) throw new Error('お名前を入力してください。');
-
-  if (roles.length < 1) {
-    throw new Error('普段の立場を1つ以上選んでください。');
-  }
-
-  if (dependent.length < 1 || dependent.length > 2) {
-    throw new Error('属人化している仕事を1〜2つ選んでください。');
-  }
-
-  if (repetitive.length < 1 || repetitive.length > 2) {
-    throw new Error('繰り返している仕事を1〜2つ選んでください。');
-  }
-
-  if (!aiChoice) {
-    throw new Error('AIで楽にしたい仕事を1つ選んでください。');
-  }
-
-  if (roles.some(role => !ROLES.includes(role))) {
-    throw new Error('立場の回答に不正な値があります。');
-  }
-
-  if (dependent.some(item => !CATEGORIES.includes(item))) {
-    throw new Error('属人化の回答に不正な値があります。');
-  }
-
-  if (repetitive.some(item => !CATEGORIES.includes(item))) {
-    throw new Error('繰り返しの回答に不正な値があります。');
-  }
-
-  if (!CATEGORIES.includes(aiChoice)) {
-    throw new Error('AIで楽にしたい仕事の回答に不正な値があります。');
-  }
+function ranking_(counter, labels, total, limit) {
+  return Object.entries(counter)
+    .map(([key, value]) => ({ key, value, percent: total ? Math.round(value / total * 100) : 0, label: labels[key] && labels[key].name ? labels[key].name : labels[key] || key, emoji: labels[key] && labels[key].emoji ? labels[key].emoji : '' }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, limit || 5);
 }
 
 function sanitizeText_(value, maxLength) {
-  return String(value || '')
-    .replace(/[<>]/g, '')
-    .trim()
-    .substring(0, maxLength || 100);
-}
-
-function normalizeArray_(value) {
-  if (!Array.isArray(value)) return [];
-  return [...new Set(value.map(item => String(item || '').trim()).filter(Boolean))];
-}
-
-function splitStoredValues_(value) {
-  if (!value) return [];
-  return String(value)
-    .split(' / ')
-    .map(item => item.trim())
-    .filter(Boolean);
-}
-
-function createCounter_(items) {
-  return items.reduce((counter, item) => {
-    counter[item] = 0;
-    return counter;
-  }, {});
-}
-
-function incrementItems_(counter, items) {
-  items.forEach(item => {
-    if (Object.prototype.hasOwnProperty.call(counter, item)) {
-      counter[item] += 1;
-    }
-  });
-}
-
-function getTopItems_(counter, limit) {
-  return Object.entries(counter)
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, limit);
-}
-
-function createEmptyDashboardData_() {
-  return {
-    total: 0,
-    roles: createCounter_(ROLES),
-    dependent: createCounter_(CATEGORIES),
-    repetitive: createCounter_(CATEGORIES),
-    aiChoice: createCounter_(CATEGORIES),
-    roleBreakdown: {},
-    topDependent: [],
-    topRepetitive: [],
-    topAi: [],
-    overlap: []
-  };
+  return String(value || '').replace(/[<>]/g, '').trim().substring(0, maxLength || 100);
 }
