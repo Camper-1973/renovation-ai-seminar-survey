@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>30秒｜リノベ業界 × AI デモ</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f4f1;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Noto Sans JP",sans-serif}.wrap{max-width:680px;margin:auto;padding:18px 14px 40px}.hero{margin-bottom:18px}h1{font-size:24px;margin:0 0 6px}.lead{font-size:14px;color:#666;line-height:1.6}.card{background:#fff;border:1px solid #ddd;border-radius:14px;padding:16px;margin:0 0 12px}.q{font-weight:700;font-size:16px;margin-bottom:11px}.small{font-size:12px;color:#777;font-weight:400}.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}input[type=text]{width:100%;min-height:46px;border:1px solid #bbb;border-radius:9px;padding:0 12px;font-size:16px}.choices{display:grid;gap:7px}.choice{display:block;position:relative}.choice input{position:absolute;opacity:0}.choice span{display:flex;align-items:center;min-height:42px;border:1px solid #ccc;border-radius:9px;background:#fafafa;padding:9px 11px;font-size:14px}.choice input:checked+span{background:#222;color:#fff;border-color:#222}.submit{width:100%;min-height:54px;border:0;border-radius:12px;background:#222;color:#fff;font-size:17px;font-weight:700}.msg{text-align:center;font-size:14px;min-height:24px;margin-top:10px}.success{background:#fff;border:1px solid #ddd;border-radius:14px;padding:34px 20px;text-align:center}.links{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:16px}.links a{display:inline-block;padding:10px 14px;border-radius:9px;border:1px solid #bbb;color:#222;text-decoration:none;background:#fff}@media(max-width:480px){.two{grid-template-columns:1fr}.choice span{font-size:13px}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <div class="hero"><h1>30秒｜リノベ業界 × AI</h1><p class="lead">GitHub Pages用デモです。回答はこの端末のブラウザ内だけに保存され、Googleスプレッドシートには送信されません。</p></div>
+  <form id="survey">
+    <div class="card"><div class="q">会社名・お名前</div><div class="two"><input id="company" type="text" placeholder="会社名" required><input id="name" type="text" placeholder="お名前" required></div></div>
+    <div class="card"><div class="q">1｜普段どの立場で仕事をしていますか？ <span class="small">複数OK</span></div><div class="choices" id="roles"></div></div>
+    <div class="card"><div class="q">2｜人に依存・属人化していると感じる仕事は？ <span class="small">2つまで</span></div><div class="choices" id="dependent"></div></div>
+    <div class="card"><div class="q">3｜同じ説明・確認・入力を何度もしている仕事は？ <span class="small">2つまで</span></div><div class="choices" id="repetitive"></div></div>
+    <div class="card"><div class="q">4｜AIで一つだけ楽にできるなら？ <span class="small">1つ</span></div><div class="choices" id="aiChoice"></div></div>
+    <button class="submit" type="submit">回答する</button><div id="msg" class="msg"></div>
+  </form>
+</div>
+<script>
+const ROLES=['リノベーション事業者・工務店・施工会社','メーカー','建材店・商社・流通','設計・デザイン','その他'];
+const CATS=['顧客との相談・ヒアリング','見積・価格判断','設計・仕様決定','商品・技術情報を探す','発注・納期確認','工程・現場管理','社内情報・過去案件を探す','問い合わせ対応'];
+function choices(id,items,type){document.getElementById(id).innerHTML=items.map(v=>`<label class="choice"><input type="${type}" name="${id}" value="${v}"><span>${v}</span></label>`).join('')}
+choices('roles',ROLES,'checkbox');choices('dependent',CATS,'checkbox');choices('repetitive',CATS,'checkbox');choices('aiChoice',CATS,'radio');
+function vals(id){return [...document.querySelectorAll(`#${id} input:checked`)].map(x=>x.value)}
+function limit(id,n){document.getElementById(id).addEventListener('change',e=>{if(vals(id).length>n)e.target.checked=false})}limit('dependent',2);limit('repetitive',2);
+document.getElementById('survey').addEventListener('submit',e=>{e.preventDefault();const d={ts:new Date().toISOString(),company:company.value.trim(),name:name.value.trim(),roles:vals('roles'),dependent:vals('dependent'),repetitive:vals('repetitive'),aiChoice:(document.querySelector('#aiChoice input:checked')||{}).value||''};const msg=document.getElementById('msg');if(!d.company||!d.name){msg.textContent='会社名とお名前を入力してください。';return}if(!d.roles.length||!d.dependent.length||!d.repetitive.length||!d.aiChoice){msg.textContent='すべての質問に回答してください。';return}const data=JSON.parse(localStorage.getItem('seminarSurveyDemo')||'[]');data.push(d);localStorage.setItem('seminarSurveyDemo',JSON.stringify(data));document.getElementById('app').innerHTML=`<div class="success"><h2>回答ありがとうございました！</h2><p>この回答はデモとして、このブラウザ内だけに保存されました。</p><div class="links"><a href="dashboard.html">集計画面を見る</a><a href="index.html">もう1件試す</a></div></div>`})
+</script>
+</body>
+</html>
