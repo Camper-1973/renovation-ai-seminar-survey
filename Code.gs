@@ -1,7 +1,8 @@
-const APP_VERSION = '0.3.0';
+const APP_VERSION = '0.4.0';
 const SHEET_NAME = '回答データ';
 const PROPERTY_SPREADSHEET_ID = 'SURVEY_SPREADSHEET_ID';
 const SPREADSHEET_NAME = 'リノベ業界タイプ診断_回答データ';
+const DEFAULT_EVENT_ID = 'general';
 
 const ROLES = {
   reno: 'リノベ・施工・設計',
@@ -101,11 +102,15 @@ function setup() {
 }
 
 function doGet(e) {
-  const mode = e && e.parameter ? e.parameter.mode : '';
+  const params = e && e.parameter ? e.parameter : {};
+  const mode = params.mode || '';
+  const eventId = normalizeEventId_(params.event || (mode === 'dashboard' ? '' : DEFAULT_EVENT_ID));
   const fileName = mode === 'dashboard' ? 'Dashboard' : 'Index';
   const title = mode === 'dashboard' ? '会場全体のリアルタイム集計' : '1分｜リノベ業界タイプ診断';
   const template = HtmlService.createTemplateFromFile(fileName);
   template.appVersion = APP_VERSION;
+  template.eventId = eventId;
+  template.eventInfo = getEventInfo_(eventId);
   return template.evaluate()
     .setTitle(title)
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
@@ -114,6 +119,8 @@ function doGet(e) {
 
 function submitResponse(data) {
   validateResponse_(data);
+  const eventId = normalizeEventId_(data.eventId || DEFAULT_EVENT_ID);
+  const eventInfo = getEventInfo_(eventId);
   const typeKey = diagnoseType_(data);
   const type = TYPES[typeKey];
   const lock = LockService.getScriptLock();
@@ -137,25 +144,37 @@ function submitResponse(data) {
       OFFER[data.offer],
       typeKey,
       type.name,
-      APP_VERSION
+      APP_VERSION,
+      eventInfo.id,
+      eventInfo.location,
+      eventInfo.date,
+      eventInfo.session
     ]);
 
-    return { success: true, totalResponses: Math.max(0, sheet.getLastRow() - 1), typeKey, type };
+    return {
+      success: true,
+      totalResponses: countEventResponses_(sheet, eventId),
+      typeKey,
+      type,
+      event: eventInfo
+    };
   } finally {
     lock.releaseLock();
   }
 }
 
-function getDashboardData() {
+function getDashboardData(eventId) {
+  const normalizedEventId = normalizeEventId_(eventId || '');
   const sheet = getResponseSheet_();
   const lastRow = sheet.getLastRow();
-  if (lastRow <= 1) return createEmptyDashboardData_();
+  const result = createEmptyDashboardData_(normalizedEventId);
+  if (lastRow <= 1) return result;
 
-  const rows = sheet.getRange(2, 1, lastRow - 1, 16).getValues();
-  const result = createEmptyDashboardData_();
-  result.total = rows.length;
+  const rows = sheet.getRange(2, 1, lastRow - 1, 20).getValues();
+  const filteredRows = normalizedEventId ? rows.filter(row => String(row[16] || '') === normalizedEventId) : rows;
+  result.total = filteredRows.length;
 
-  rows.forEach(row => {
+  filteredRows.forEach(row => {
     const role = String(row[3] || '');
     const purpose = String(row[5] || '');
     const growth = String(row[9] || '');
@@ -238,14 +257,21 @@ function initializeResponseSheet_(spreadsheet) {
     }
   }
 
-  const headers = ['回答日時','会社名','名前','立場キー','立場','参加理由キー','参加理由','高揚ポイントキー','高揚ポイント','伸ばしたいことキー','伸ばしたいこと','提供できることキー','提供できること','タイプキー','診断タイプ','アプリバージョン'];
+  const headers = ['回答日時','会社名','名前','立場キー','立場','参加理由キー','参加理由','高揚ポイントキー','高揚ポイント','伸ばしたいことキー','伸ばしたいこと','提供できることキー','提供できること','タイプキー','診断タイプ','アプリバージョン','イベントID','開催地','開催日','セッション'];
+  const widths = [160,180,130,90,170,110,320,120,240,120,170,120,190,100,190,120,210,110,110,100];
 
   if (sheet.getLastRow() === 0) {
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    sheet.setFrozenRows(1);
-    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
-    [160,180,130,90,170,110,320,120,240,120,170,120,190,100,190,120].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+  } else {
+    const currentHeaders = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), headers.length)).getValues()[0];
+    headers.forEach((header, index) => {
+      if (currentHeaders[index] !== header) sheet.getRange(1, index + 1).setValue(header);
+    });
   }
+
+  sheet.setFrozenRows(1);
+  sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+  widths.forEach((w, i) => sheet.setColumnWidth(i + 1, w));
 }
 
 function validateResponse_(data) {
@@ -271,12 +297,67 @@ function getResponseSheet_() {
   return spreadsheet.getSheetByName(SHEET_NAME);
 }
 
-function createEmptyDashboardData_() {
+function createEmptyDashboardData_(eventId) {
   const roleBreakdown = {};
   Object.keys(ROLES).forEach(key => {
     roleBreakdown[key] = { label: ROLES[key], count: 0, types: {}, purposes: {}, growths: {}, offers: {}, typeRanking: [], purposeRanking: [], growthRanking: [] };
   });
-  return { total: 0, typeCounts: {}, roleCounts: {}, purposeCounts: {}, growthCounts: {}, offerCounts: {}, typeRanking: [], purposeRanking: [], growthRanking: [], offerRanking: [], roleBreakdown, types: TYPES, roles: ROLES, purpose: PURPOSE, growth: GROWTH, offer: OFFER, appVersion: APP_VERSION };
+  return {
+    total: 0,
+    event: eventId ? getEventInfo_(eventId) : { id: '', label: '全イベント', location: '', date: '', session: '' },
+    typeCounts: {},
+    roleCounts: {},
+    purposeCounts: {},
+    growthCounts: {},
+    offerCounts: {},
+    typeRanking: [],
+    purposeRanking: [],
+    growthRanking: [],
+    offerRanking: [],
+    roleBreakdown,
+    types: TYPES,
+    roles: ROLES,
+    purpose: PURPOSE,
+    growth: GROWTH,
+    offer: OFFER,
+    appVersion: APP_VERSION
+  };
+}
+
+function countEventResponses_(sheet, eventId) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return 0;
+  const values = sheet.getRange(2, 17, lastRow - 1, 1).getValues();
+  return values.reduce((count, row) => count + (String(row[0] || '') === eventId ? 1 : 0), 0);
+}
+
+function normalizeEventId_(value) {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '').substring(0, 80);
+}
+
+function getEventInfo_(eventId) {
+  const id = normalizeEventId_(eventId);
+  if (!id) return { id: '', label: '全イベント', location: '', date: '', session: '' };
+  if (id === DEFAULT_EVENT_ID) return { id, label: '一般利用', location: '', date: '', session: '' };
+
+  const match = id.match(/^([a-z0-9]+)-(\d{4})-(\d{2})-(\d{2})(?:-([a-z0-9]+))?$/);
+  if (!match) return { id, label: id, location: '', date: '', session: '' };
+
+  const locationMap = {
+    sendai: '仙台',
+    sapporo: '札幌',
+    tokyo: '東京',
+    fukuoka: '福岡',
+    hiroshima: '広島',
+    osaka: '大阪',
+    nagoya: '名古屋'
+  };
+  const sessionMap = { am: '午前', pm: '午後', eve: '夜' };
+  const location = locationMap[match[1]] || match[1];
+  const date = `${match[2]}-${match[3]}-${match[4]}`;
+  const session = sessionMap[match[5]] || (match[5] || '');
+  const label = [location, date, session].filter(Boolean).join(' ');
+  return { id, label, location, date, session };
 }
 
 function increment_(obj, key) {
