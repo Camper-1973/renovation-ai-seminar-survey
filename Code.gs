@@ -1,377 +1,54 @@
-const APP_VERSION = '0.4.0';
+const APP_VERSION = '0.5.0';
 const SHEET_NAME = '回答データ';
 const PROPERTY_SPREADSHEET_ID = 'SURVEY_SPREADSHEET_ID';
 const SPREADSHEET_NAME = 'リノベ業界タイプ診断_回答データ';
 const DEFAULT_EVENT_ID = 'general';
-
-const ROLES = {
-  reno: 'リノベ・施工・設計',
-  maker: 'メーカー',
-  sales: '販売・流通'
-};
-
-const PURPOSE = {
-  deal: '商談・仕事につながる相手を見つけたい',
-  info: '新しい商品・技術・事例を仕入れたい',
-  people: '人脈を広げたい・久しぶりの人に会いたい',
-  trend: '業界の動きや他社の話を聞きたい',
-  fun: 'なんとなく面白そうだった',
-  sent: '会社・上司に行ってこいと言われた',
-  none: '特に目的はない。来てから考える'
-};
-
-const EXCITE = {
-  win: '案件や提案が決まった',
-  discover: 'いい商品・技術を見つけた',
-  solve: '難しい問題を解決した',
-  happy: 'お客さんに喜ばれた',
-  connect: '新しい人とつながった'
-};
-
-const GROWTH = {
-  sales: '営業・受注',
-  proposal: '提案力',
-  knowledge: '商品・技術知識',
-  network: '人脈・協業',
-  system: '業務効率・仕組み化'
-};
-
-const OFFER = {
-  job: '案件・仕事',
-  product: '商品・技術情報',
-  price: '価格・調達力',
-  knowhow: '施工・設計ノウハウ',
-  intro: '人や会社の紹介'
-};
+const AXES = { drive:'行動力', lead:'主導力', social:'対人力', think:'分析力', create:'感性', adapt:'適応力' };
+const AXIS_KEYS = Object.keys(AXES);
+const ROLES = { reno:'リノベ・施工・設計', maker:'メーカー', sales:'販売・流通' };
 
 const TYPES = {
-  hunter: {
-    name: 'ゴリゴリ開拓タイプ',
-    emoji: '🔥',
-    copy: 'チャンスを見つけたら前へ。商談・受注・次の一手をつくる行動派。',
-    hint: '交流会では「今どんな案件を探してます？」から入ると強い。'
-  },
-  scout: {
-    name: '新商品ハンタータイプ',
-    emoji: '🔍',
-    copy: '新しい商品・技術・事例を集めて、使える形に変える探索派。',
-    hint: 'メーカー担当者に「最近いちばん面白い商品は？」と聞いてみよう。'
-  },
-  connector: {
-    name: 'つなぐ人タイプ',
-    emoji: '🤝',
-    copy: '人と人、会社と会社をつなぐことで価値をつくるネットワーカー。',
-    hint: '「誰か紹介できそうな人いません？」が今日の魔法の言葉。'
-  },
-  strategist: {
-    name: '現場の軍師タイプ',
-    emoji: '🧠',
-    copy: '情報を整理して、最適な組み合わせや判断をつくる分析・提案派。',
-    hint: '違う立場の人に「その判断、何を基準にしてます？」と聞くと面白い。'
-  },
-  solver: {
-    name: '解決屋タイプ',
-    emoji: '🛠️',
-    copy: '困りごとを見ると放っておけない。現場の詰まりをほどく実務派。',
-    hint: '「最近いちばん困った現場って何でした？」から話すと盛り上がる。'
-  },
-  observer: {
-    name: '様子見スカウトタイプ',
-    emoji: '👀',
-    copy: '最初から決め打ちせず、場を見て面白いものを拾う観察派。',
-    hint: 'せっかく来たので、今日は一人だけ「予想外に面白い人」を見つけて帰ろう。'
-  }
+ lion:{name:'ライオン',emoji:'🦁',copy:'責任を引き受け、迷いを決断に変えるリーダー。',profile:[78,95,72,58,52,45],analysis:['判断が必要な場面では、自然と前に立てる人です。','目的を定めると、周囲を巻き込みながら前進できます。','責任ある決断と、最後までやり切る姿勢が強み。'],approach:'「この業界で次に仕掛けたいことは？」と聞き、構想を語り合ってみてください。',matches:['owl','rabbit'],collaboration:'北海道の高性能住宅企業と、地域を越えた新しい事業モデルを共同で立ち上げる。'},
+ wolf:{name:'オオカミ',emoji:'🐺',copy:'独自の視点を磨き、専門性で道を切り開く探究者。',profile:[66,68,34,84,82,35],analysis:['周囲に合わせるより、納得できる方法を選ぶ傾向があります。','広く浅くより、関心のあるテーマを深く掘るのが得意です。','独自性と専門性を組み合わせるほど力を発揮します。'],approach:'「最近いちばん面白かった仕事は？」と、気になる相手に深く聞いてみてください。',matches:['fox','rabbit'],collaboration:'北海道の断熱ノウハウや地域材と、独自のリノベ提案を掛け合わせる。'},
+ gorilla:{name:'ゴリラ',emoji:'🦍',copy:'人に会い、巻き込み、案件を前へ運ぶ頼れる推進役。',profile:[94,76,90,42,42,62],analysis:['考え込むより、人に会って動きながら答えをつくる人です。','周囲との信頼を力に変え、停滞した案件を前進させます。','行動量と巻き込み力が、あなたの大きな武器です。'],approach:'「今どんな案件を探していますか？」から入り、互いに紹介できる人を探してみてください。',matches:['owl','whale'],collaboration:'北海道の地場工務店と共同営業や相互送客イベントを企画する。'},
+ boar:{name:'イノシシ',emoji:'🐗',copy:'好機を見たらまず一歩。熱量で突破口をつくる実践者。',profile:[98,73,55,32,58,55],analysis:['面白い可能性を感じると、素早く最初の一歩を踏み出せます。','完璧を待つより、試して学ぶことで前へ進むタイプです。','その熱量が、チームや顧客の背中も押します。'],approach:'今日試してみたいアイデアを一つ話し、「一緒に小さく試しませんか？」と誘ってみてください。',matches:['owl','tanuki'],collaboration:'北海道発の新素材や工法を、小規模な実証案件で素早く試す。'},
+ whale:{name:'クジラ',emoji:'🐋',copy:'遠くまで見渡し、長い時間軸で大きな構想を描く人。',profile:[48,70,58,83,76,57],analysis:['目先の案件だけでなく、その先の市場や地域まで見ています。','複雑な情報を大きな物語としてまとめるのが得意です。','長期視点の構想が、周囲に新しい目的を与えます。'],approach:'「5年後、この地域をどうしたいですか？」と聞き、長期の構想を持つ人を探してみてください。',matches:['gorilla','fox'],collaboration:'北海道と東北をつなぐ、地域横断の中古住宅再生プロジェクトを構想する。'},
+ owl:{name:'フクロウ',emoji:'🦉',copy:'観察と検証を重ね、確かな判断をつくる戦略家。',profile:[38,52,42,98,54,61],analysis:['まず情報を集め、判断材料を整理してから動く人です。','表面的な流行より、根拠と再現性を大切にします。','複雑な課題を解きほぐし、確かな道筋を示せます。'],approach:'「その判断は何を基準にしていますか？」と聞くと、質の高い情報交換になりそうです。',matches:['gorilla','lion'],collaboration:'北海道の住宅性能データを使い、共同検証や実務者向け勉強会を開く。'},
+ fox:{name:'キツネ',emoji:'🦊',copy:'人・情報・アイデアを組み合わせ、企画に変える編集者。',profile:[40,45,76,48,92,72],analysis:['異なる立場の人や情報の間に、面白いつながりを見つけます。','相手の意図を読みながら、魅力的な提案へ編集できます。','交渉と発想を行き来できる、企画力の高い人です。'],approach:'「何か一緒に組み合わせたら面白いものは？」と、異業種の人に投げかけてみてください。',matches:['wolf','cat'],collaboration:'北海道の素材メーカーと設計・販売会社をつなぎ、共同商品を企画する。'},
+ tanuki:{name:'タヌキ',emoji:'🦝',copy:'相手と状況を読み、最適な役割へ変化できる調整役。',profile:[57,47,78,58,56,98],analysis:['状況を素早く読み、その場に必要な動き方を選べます。','一つの型に固執せず、異なる意見の橋渡しが得意です。','柔軟さと調整力で、チーム全体を機能させる人です。'],approach:'話の輪に入りにくそうな人へ声をかけ、別の誰かにつないでみてください。',matches:['boar','cat'],collaboration:'北海道側と地域側の商習慣を翻訳し、無理のない協業スキームを整える。'},
+ cat:{name:'ネコ',emoji:'🐈',copy:'美意識と自分のリズムを守り、世界観を形にする表現者。',profile:[42,48,38,66,99,44],analysis:['機能だけでなく、空間や提案の佇まいを大切にします。','自分の感覚を丁寧に磨き、独自の世界観へ育てられます。','静かなこだわりが、選ばれる価値を生み出します。'],approach:'気になる事例を見せながら、「どこに惹かれますか？」と感性の合う人を探してみてください。',matches:['fox','gorilla'],collaboration:'北海道の自然素材と地域の暮らしを、印象的な空間・ブランド表現へ仕立てる。'},
+ rabbit:{name:'ウサギ',emoji:'🐇',copy:'小さな声を拾い、安心と信頼を育てる顧客理解の達人。',profile:[45,36,92,59,62,91],analysis:['相手の表情や言葉の奥にある気持ちを丁寧に捉えます。','急いで結論を出すより、安心して話せる関係を育てます。','顧客理解と気配りが、長く続く信頼をつくります。'],approach:'「最近、お客様に喜ばれたことは？」と聞き、共感できる相手と話してみてください。',matches:['lion','wolf'],collaboration:'北海道の暮らしの知恵を取り入れ、住まい手参加型の商品・サービスをつくる。'}
 };
 
-function setup() {
-  const properties = PropertiesService.getScriptProperties();
-  const existingId = properties.getProperty(PROPERTY_SPREADSHEET_ID);
+// Answer keys map to [行動力, 主導力, 対人力, 分析力, 感性, 適応力].
+const QUESTION_SCORES = [
+ {meet:[3,0,2,0,0,0],inspect:[0,0,0,3,0,0],imagine:[0,0,0,0,3,0],assemble:[0,1,2,0,0,2]},
+ {lead:[1,3,0,0,0,0],mediate:[0,0,2,0,0,3],evidence:[0,0,0,3,0,1],third:[0,1,0,1,3,1]},
+ {many:[3,1,3,0,0,0],observe:[0,0,0,3,1,1],deep:[0,1,1,2,1,0],connect:[1,0,3,0,0,3]},
+ {patch:[3,1,0,0,0,1],cause:[0,0,0,3,0,0],consult:[1,0,2,1,0,3],redesign:[1,0,0,1,3,1]},
+ {control:[0,2,0,3,0,0],accept:[0,0,2,0,0,3],propose:[1,1,1,0,3,1],persuade:[1,3,1,1,0,0]},
+ {calls:[3,2,3,0,0,0],analyze:[0,1,0,3,0,0],offer:[1,1,2,1,3,0],regroup:[1,1,2,1,0,3]},
+ {test:[3,1,0,0,1,1],compare:[0,0,0,3,0,1],story:[0,1,1,0,3,0],share:[1,0,3,1,0,2]},
+ {captain:[2,3,1,0,0,0],specialist:[1,1,0,3,2,0],promoter:[2,1,3,0,1,1],supporter:[0,0,2,1,0,3]},
+ {debate:[1,2,1,2,0,0],listen:[0,0,2,1,0,3],verify:[0,0,0,3,0,1],remix:[1,0,1,1,3,1]},
+ {achieve:[2,3,0,0,0,0],solve:[1,1,0,3,0,0],delight:[0,0,3,0,1,2],create:[1,0,0,1,3,0]}
+];
 
-  if (existingId) {
-    try {
-      const existing = SpreadsheetApp.openById(existingId);
-      initializeResponseSheet_(existing);
-      return { spreadsheetId: existing.getId(), spreadsheetUrl: existing.getUrl(), reused: true };
-    } catch (error) {}
-  }
-
-  const spreadsheet = SpreadsheetApp.create(SPREADSHEET_NAME);
-  properties.setProperty(PROPERTY_SPREADSHEET_ID, spreadsheet.getId());
-  initializeResponseSheet_(spreadsheet);
-  return { spreadsheetId: spreadsheet.getId(), spreadsheetUrl: spreadsheet.getUrl(), reused: false };
-}
-
-function doGet(e) {
-  const params = e && e.parameter ? e.parameter : {};
-  const mode = params.mode || '';
-  const eventId = normalizeEventId_(params.event || (mode === 'dashboard' ? '' : DEFAULT_EVENT_ID));
-  const fileName = mode === 'dashboard' ? 'Dashboard' : 'Index';
-  const title = mode === 'dashboard' ? '会場全体のリアルタイム集計' : '1分｜リノベ業界タイプ診断';
-  const template = HtmlService.createTemplateFromFile(fileName);
-  template.appVersion = APP_VERSION;
-  template.eventId = eventId;
-  template.eventInfo = getEventInfo_(eventId);
-  return template.evaluate()
-    .setTitle(title)
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
-}
-
-function submitResponse(data) {
-  validateResponse_(data);
-  const eventId = normalizeEventId_(data.eventId || DEFAULT_EVENT_ID);
-  const eventInfo = getEventInfo_(eventId);
-  const typeKey = diagnoseType_(data);
-  const type = TYPES[typeKey];
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
-
-  try {
-    const sheet = getResponseSheet_();
-    sheet.appendRow([
-      new Date(),
-      sanitizeText_(data.company, 100),
-      sanitizeText_(data.name, 100),
-      data.role,
-      ROLES[data.role],
-      data.purpose,
-      PURPOSE[data.purpose],
-      data.excite,
-      EXCITE[data.excite],
-      data.growth,
-      GROWTH[data.growth],
-      data.offer,
-      OFFER[data.offer],
-      typeKey,
-      type.name,
-      APP_VERSION,
-      eventInfo.id,
-      eventInfo.location,
-      eventInfo.date,
-      eventInfo.session
-    ]);
-
-    return {
-      success: true,
-      totalResponses: countEventResponses_(sheet, eventId),
-      typeKey,
-      type,
-      event: eventInfo
-    };
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-function getDashboardData(eventId) {
-  const normalizedEventId = normalizeEventId_(eventId || '');
-  const sheet = getResponseSheet_();
-  const lastRow = sheet.getLastRow();
-  const result = createEmptyDashboardData_(normalizedEventId);
-  if (lastRow <= 1) return result;
-
-  const rows = sheet.getRange(2, 1, lastRow - 1, 20).getValues();
-  const filteredRows = normalizedEventId ? rows.filter(row => String(row[16] || '') === normalizedEventId) : rows;
-  result.total = filteredRows.length;
-
-  filteredRows.forEach(row => {
-    const role = String(row[3] || '');
-    const purpose = String(row[5] || '');
-    const growth = String(row[9] || '');
-    const offer = String(row[11] || '');
-    const typeKey = String(row[13] || '');
-
-    increment_(result.typeCounts, typeKey);
-    increment_(result.roleCounts, role);
-    increment_(result.purposeCounts, purpose);
-    increment_(result.growthCounts, growth);
-    increment_(result.offerCounts, offer);
-
-    if (result.roleBreakdown[role]) {
-      result.roleBreakdown[role].count += 1;
-      increment_(result.roleBreakdown[role].types, typeKey);
-      increment_(result.roleBreakdown[role].purposes, purpose);
-      increment_(result.roleBreakdown[role].growths, growth);
-      increment_(result.roleBreakdown[role].offers, offer);
-    }
-  });
-
-  result.typeRanking = ranking_(result.typeCounts, TYPES, result.total, 6);
-  result.purposeRanking = ranking_(result.purposeCounts, PURPOSE, result.total, 5);
-  result.growthRanking = ranking_(result.growthCounts, GROWTH, result.total, 5);
-  result.offerRanking = ranking_(result.offerCounts, OFFER, result.total, 5);
-
-  Object.keys(result.roleBreakdown).forEach(role => {
-    const bucket = result.roleBreakdown[role];
-    bucket.typeRanking = ranking_(bucket.types, TYPES, bucket.count, 3);
-    bucket.purposeRanking = ranking_(bucket.purposes, PURPOSE, bucket.count, 3);
-    bucket.growthRanking = ranking_(bucket.growths, GROWTH, bucket.count, 3);
-  });
-
-  return result;
-}
-
-function getSpreadsheetInfo() {
-  const spreadsheet = getSpreadsheet_();
-  return { spreadsheetId: spreadsheet.getId(), spreadsheetUrl: spreadsheet.getUrl() };
-}
-
-function diagnoseType_(data) {
-  const score = { hunter: 0, scout: 0, connector: 0, strategist: 0, solver: 0, observer: 0 };
-
-  if (data.purpose === 'deal') score.hunter += 3;
-  if (data.purpose === 'info' || data.purpose === 'trend') score.scout += 2;
-  if (data.purpose === 'people') score.connector += 3;
-  if (data.purpose === 'sent' || data.purpose === 'none' || data.purpose === 'fun') score.observer += 3;
-
-  if (data.excite === 'win') score.hunter += 2;
-  if (data.excite === 'discover') score.scout += 3;
-  if (data.excite === 'solve') score.solver += 3;
-  if (data.excite === 'happy') { score.solver += 1; score.strategist += 1; }
-  if (data.excite === 'connect') score.connector += 3;
-
-  if (data.growth === 'sales') score.hunter += 2;
-  if (data.growth === 'proposal') score.strategist += 3;
-  if (data.growth === 'knowledge') score.scout += 2;
-  if (data.growth === 'network') score.connector += 2;
-  if (data.growth === 'system') { score.strategist += 2; score.solver += 1; }
-
-  if (data.offer === 'job') score.hunter += 2;
-  if (data.offer === 'product') score.scout += 2;
-  if (data.offer === 'price') score.strategist += 2;
-  if (data.offer === 'knowhow') score.solver += 2;
-  if (data.offer === 'intro') score.connector += 2;
-
-  return Object.entries(score).sort((a, b) => b[1] - a[1])[0][0];
-}
-
-function initializeResponseSheet_(spreadsheet) {
-  let sheet = spreadsheet.getSheetByName(SHEET_NAME);
-  if (!sheet) {
-    const first = spreadsheet.getSheets()[0];
-    if (spreadsheet.getSheets().length === 1 && first.getLastRow() === 0) {
-      sheet = first;
-      sheet.setName(SHEET_NAME);
-    } else {
-      sheet = spreadsheet.insertSheet(SHEET_NAME);
-    }
-  }
-
-  const headers = ['回答日時','会社名','名前','立場キー','立場','参加理由キー','参加理由','高揚ポイントキー','高揚ポイント','伸ばしたいことキー','伸ばしたいこと','提供できることキー','提供できること','タイプキー','診断タイプ','アプリバージョン','イベントID','開催地','開催日','セッション'];
-  const widths = [160,180,130,90,170,110,320,120,240,120,170,120,190,100,190,120,210,110,110,100];
-
-  if (sheet.getLastRow() === 0) {
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-  } else {
-    const currentHeaders = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), headers.length)).getValues()[0];
-    headers.forEach((header, index) => {
-      if (currentHeaders[index] !== header) sheet.getRange(1, index + 1).setValue(header);
-    });
-  }
-
-  sheet.setFrozenRows(1);
-  sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
-  widths.forEach((w, i) => sheet.setColumnWidth(i + 1, w));
-}
-
-function validateResponse_(data) {
-  if (!data || typeof data !== 'object') throw new Error('回答データがありません。');
-  if (!sanitizeText_(data.company, 100)) throw new Error('会社名を入力してください。');
-  if (!sanitizeText_(data.name, 100)) throw new Error('お名前を入力してください。');
-  if (!ROLES[data.role]) throw new Error('立場を選んでください。');
-  if (!PURPOSE[data.purpose]) throw new Error('今日ここに来た理由を選んでください。');
-  if (!EXCITE[data.excite]) throw new Error('テンションが上がる瞬間を選んでください。');
-  if (!GROWTH[data.growth]) throw new Error('会社として伸ばしたいことを選んでください。');
-  if (!OFFER[data.offer]) throw new Error('提供できるものを選んでください。');
-}
-
-function getSpreadsheet_() {
-  const id = PropertiesService.getScriptProperties().getProperty(PROPERTY_SPREADSHEET_ID);
-  if (!id) throw new Error('初期設定が未完了です。Apps Scriptエディタで setup() を1回実行してください。');
-  return SpreadsheetApp.openById(id);
-}
-
-function getResponseSheet_() {
-  const spreadsheet = getSpreadsheet_();
-  initializeResponseSheet_(spreadsheet);
-  return spreadsheet.getSheetByName(SHEET_NAME);
-}
-
-function createEmptyDashboardData_(eventId) {
-  const roleBreakdown = {};
-  Object.keys(ROLES).forEach(key => {
-    roleBreakdown[key] = { label: ROLES[key], count: 0, types: {}, purposes: {}, growths: {}, offers: {}, typeRanking: [], purposeRanking: [], growthRanking: [] };
-  });
-  return {
-    total: 0,
-    event: eventId ? getEventInfo_(eventId) : { id: '', label: '全イベント', location: '', date: '', session: '' },
-    typeCounts: {},
-    roleCounts: {},
-    purposeCounts: {},
-    growthCounts: {},
-    offerCounts: {},
-    typeRanking: [],
-    purposeRanking: [],
-    growthRanking: [],
-    offerRanking: [],
-    roleBreakdown,
-    types: TYPES,
-    roles: ROLES,
-    purpose: PURPOSE,
-    growth: GROWTH,
-    offer: OFFER,
-    appVersion: APP_VERSION
-  };
-}
-
-function countEventResponses_(sheet, eventId) {
-  const lastRow = sheet.getLastRow();
-  if (lastRow <= 1) return 0;
-  const values = sheet.getRange(2, 17, lastRow - 1, 1).getValues();
-  return values.reduce((count, row) => count + (String(row[0] || '') === eventId ? 1 : 0), 0);
-}
-
-function normalizeEventId_(value) {
-  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '').substring(0, 80);
-}
-
-function getEventInfo_(eventId) {
-  const id = normalizeEventId_(eventId);
-  if (!id) return { id: '', label: '全イベント', location: '', date: '', session: '' };
-  if (id === DEFAULT_EVENT_ID) return { id, label: '一般利用', location: '', date: '', session: '' };
-
-  const match = id.match(/^([a-z0-9]+)-(\d{4})-(\d{2})-(\d{2})(?:-([a-z0-9]+))?$/);
-  if (!match) return { id, label: id, location: '', date: '', session: '' };
-
-  const locationMap = {
-    sendai: '仙台',
-    sapporo: '札幌',
-    tokyo: '東京',
-    fukuoka: '福岡',
-    hiroshima: '広島',
-    osaka: '大阪',
-    nagoya: '名古屋'
-  };
-  const sessionMap = { am: '午前', pm: '午後', eve: '夜' };
-  const location = locationMap[match[1]] || match[1];
-  const date = `${match[2]}-${match[3]}-${match[4]}`;
-  const session = sessionMap[match[5]] || (match[5] || '');
-  const label = [location, date, session].filter(Boolean).join(' ');
-  return { id, label, location, date, session };
-}
-
-function increment_(obj, key) {
-  if (!key) return;
-  obj[key] = (obj[key] || 0) + 1;
-}
-
-function ranking_(counter, labels, total, limit) {
-  return Object.entries(counter)
-    .map(([key, value]) => ({ key, value, percent: total ? Math.round(value / total * 100) : 0, label: labels[key] && labels[key].name ? labels[key].name : labels[key] || key, emoji: labels[key] && labels[key].emoji ? labels[key].emoji : '' }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, limit || 5);
-}
-
-function sanitizeText_(value, maxLength) {
-  return String(value || '').replace(/[<>]/g, '').trim().substring(0, maxLength || 100);
-}
+function setup(){const p=PropertiesService.getScriptProperties(),id=p.getProperty(PROPERTY_SPREADSHEET_ID);if(id){try{const s=SpreadsheetApp.openById(id);initializeResponseSheet_(s);return{spreadsheetId:s.getId(),spreadsheetUrl:s.getUrl(),reused:true};}catch(e){}}const s=SpreadsheetApp.create(SPREADSHEET_NAME);p.setProperty(PROPERTY_SPREADSHEET_ID,s.getId());initializeResponseSheet_(s);return{spreadsheetId:s.getId(),spreadsheetUrl:s.getUrl(),reused:false};}
+function doGet(e){const p=e&&e.parameter?e.parameter:{},mode=p.mode||'',eventId=normalizeEventId_(p.event||(mode==='dashboard'?'':DEFAULT_EVENT_ID)),t=HtmlService.createTemplateFromFile(mode==='dashboard'?'Dashboard':'Index');t.appVersion=APP_VERSION;t.eventId=eventId;t.eventInfo=getEventInfo_(eventId);return t.evaluate().setTitle(mode==='dashboard'?'会場の生態系':'リノベ業界 生態系診断').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL).addMetaTag('viewport','width=device-width, initial-scale=1');}
+function submitResponse(data){validateResponse_(data);const eventId=normalizeEventId_(data.eventId||DEFAULT_EVENT_ID),eventInfo=getEventInfo_(eventId),d=diagnoseAnimal_(data.answers),primary=TYPES[d.typeKey],hidden=TYPES[d.hiddenTypeKey],lock=LockService.getScriptLock();lock.waitLock(10000);try{const sheet=getResponseSheet_();sheet.appendRow([new Date(),sanitizeText_(data.company,100),sanitizeText_(data.name,100),data.role,ROLES[data.role],'','','','','','','','',d.typeKey,primary.name,APP_VERSION,eventInfo.id,eventInfo.location,eventInfo.date,eventInfo.session,...data.answers,...AXIS_KEYS.map(k=>d.scores[k]),d.hiddenTypeKey,hidden.name]);return{success:true,totalResponses:countEventResponses_(sheet,eventId),typeKey:d.typeKey,type:publicType_(primary),hiddenTypeKey:d.hiddenTypeKey,hiddenType:publicType_(hidden),scores:d.scores,axes:AXES,event:eventInfo};}finally{lock.releaseLock();}}
+function getDashboardData(eventId){const id=normalizeEventId_(eventId||''),sheet=getResponseSheet_(),result=createEmptyDashboardData_(id),last=sheet.getLastRow();if(last<=1)return result;const rows=sheet.getRange(2,1,last-1,Math.max(20,sheet.getLastColumn())).getValues(),filtered=id?rows.filter(r=>String(r[16]||'')===id):rows;result.total=filtered.length;filtered.forEach(r=>{const role=String(r[3]||''),key=String(r[13]||'');if(!TYPES[key]){result.legacyTotal++;return;}result.diagnosedTotal++;increment_(result.typeCounts,key);if(result.roleBreakdown[role]){result.roleBreakdown[role].count++;increment_(result.roleBreakdown[role].types,key);}});result.typeRanking=ranking_(result.typeCounts,TYPES,result.diagnosedTotal,10);Object.keys(result.roleBreakdown).forEach(role=>{const b=result.roleBreakdown[role];b.typeRanking=ranking_(b.types,TYPES,b.count,10);});return result;}
+function diagnoseAnimal_(answers){const raw={},max={};AXIS_KEYS.forEach(k=>{raw[k]=0;max[k]=0;});QUESTION_SCORES.forEach((q,i)=>{q[answers[i]].forEach((v,a)=>raw[AXIS_KEYS[a]]+=v);AXIS_KEYS.forEach((k,a)=>max[k]+=Math.max(...Object.keys(q).map(o=>q[o][a])));});const scores={};AXIS_KEYS.forEach(k=>scores[k]=max[k]?Math.round(raw[k]/max[k]*100):0);const ranked=Object.keys(TYPES).map((key,index)=>({key,index,distance:Math.sqrt(TYPES[key].profile.reduce((sum,target,i)=>sum+Math.pow(scores[AXIS_KEYS[i]]-target,2),0))})).sort((a,b)=>a.distance-b.distance||a.index-b.index);return{typeKey:ranked[0].key,hiddenTypeKey:ranked[1].key,scores};}
+function publicType_(t){return{name:t.name,emoji:t.emoji,copy:t.copy,analysis:t.analysis,approach:t.approach,matches:t.matches.map(k=>({key:k,name:TYPES[k].name,emoji:TYPES[k].emoji})),collaboration:t.collaboration};}
+function initializeResponseSheet_(spreadsheet){let sheet=spreadsheet.getSheetByName(SHEET_NAME);if(!sheet){const first=spreadsheet.getSheets()[0];sheet=spreadsheet.getSheets().length===1&&first.getLastRow()===0?first:spreadsheet.insertSheet(SHEET_NAME);sheet.setName(SHEET_NAME);}const headers=['回答日時','会社名','名前','立場キー','立場','参加理由キー','参加理由','高揚ポイントキー','高揚ポイント','伸ばしたいことキー','伸ばしたいこと','提供できることキー','提供できること','タイプキー','診断タイプ','アプリバージョン','イベントID','開催地','開催日','セッション','診断Q1','診断Q2','診断Q3','診断Q4','診断Q5','診断Q6','診断Q7','診断Q8','診断Q9','診断Q10','行動力','主導力','対人力','分析力','感性','適応力','隠れタイプキー','隠れタイプ'];if(sheet.getLastRow()===0)sheet.getRange(1,1,1,headers.length).setValues([headers]);else{const current=sheet.getRange(1,1,1,Math.max(sheet.getLastColumn(),headers.length)).getValues()[0];headers.forEach((h,i)=>{if(!current[i])sheet.getRange(1,i+1).setValue(h);});}sheet.setFrozenRows(1);sheet.getRange(1,1,1,headers.length).setFontWeight('bold');}
+function validateResponse_(data){if(!data||typeof data!=='object')throw new Error('回答データがありません。');if(!sanitizeText_(data.company,100))throw new Error('会社名を入力してください。');if(!sanitizeText_(data.name,100))throw new Error('お名前を入力してください。');if(!ROLES[data.role])throw new Error('立場を選んでください。');if(!Array.isArray(data.answers)||data.answers.length!==10)throw new Error('10問すべてに回答してください。');data.answers.forEach((a,i)=>{if(!QUESTION_SCORES[i][a])throw new Error('回答内容を確認してください。');});}
+function getSpreadsheetInfo(){const s=getSpreadsheet_();return{spreadsheetId:s.getId(),spreadsheetUrl:s.getUrl()};}
+function getSpreadsheet_(){const id=PropertiesService.getScriptProperties().getProperty(PROPERTY_SPREADSHEET_ID);if(!id)throw new Error('初期設定が未完了です。Apps Scriptエディタで setup() を1回実行してください。');return SpreadsheetApp.openById(id);}
+function getResponseSheet_(){const s=getSpreadsheet_();initializeResponseSheet_(s);return s.getSheetByName(SHEET_NAME);}
+function createEmptyDashboardData_(eventId){const roleBreakdown={};Object.keys(ROLES).forEach(k=>roleBreakdown[k]={label:ROLES[k],count:0,types:{},typeRanking:[]});return{total:0,diagnosedTotal:0,legacyTotal:0,event:eventId?getEventInfo_(eventId):{id:'',label:'全イベント',location:'',date:'',session:''},typeCounts:{},typeRanking:[],roleBreakdown,types:TYPES,roles:ROLES,appVersion:APP_VERSION};}
+function countEventResponses_(sheet,eventId){const n=sheet.getLastRow();if(n<=1)return 0;return sheet.getRange(2,17,n-1,1).getValues().reduce((c,r)=>c+(String(r[0]||'')===eventId?1:0),0);}
+function normalizeEventId_(v){return String(v||'').trim().toLowerCase().replace(/[^a-z0-9-]/g,'').substring(0,80);}
+function getEventInfo_(eventId){const id=normalizeEventId_(eventId);if(!id)return{id:'',label:'全イベント',location:'',date:'',session:''};if(id===DEFAULT_EVENT_ID)return{id,label:'一般利用',location:'',date:'',session:''};const m=id.match(/^([a-z0-9]+)-(\d{4})-(\d{2})-(\d{2})(?:-([a-z0-9]+))?$/);if(!m)return{id,label:id,location:'',date:'',session:''};const locations={sendai:'仙台',sapporo:'札幌',tokyo:'東京',fukuoka:'福岡',hiroshima:'広島',osaka:'大阪',nagoya:'名古屋'},sessions={am:'午前',pm:'午後',eve:'夜'},location=locations[m[1]]||m[1],date=`${m[2]}-${m[3]}-${m[4]}`,session=sessions[m[5]]||(m[5]||'');return{id,label:[location,date,session].filter(Boolean).join(' '),location,date,session};}
+function increment_(obj,key){if(key)obj[key]=(obj[key]||0)+1;}
+function ranking_(counter,labels,total,limit){return Object.entries(counter).map(([key,value])=>({key,value,percent:total?Math.round(value/total*100):0,label:labels[key].name,emoji:labels[key].emoji})).sort((a,b)=>b.value-a.value).slice(0,limit||10);}
+function sanitizeText_(v,n){return String(v||'').replace(/[<>]/g,'').trim().substring(0,n||100);}

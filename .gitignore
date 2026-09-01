@@ -1,1 +1,8 @@
 .clasp.json
+.env
+.env.*
+!.env.example
+*credentials*
+*token*
+*.pem
+*.key
