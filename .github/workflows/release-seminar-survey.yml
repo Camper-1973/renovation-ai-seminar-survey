@@ -1,0 +1,99 @@
+name: Release seminar survey to PROD
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: 'renovation-ai-seminar-survey ref (branch/tag/SHA)'
+        required: true
+        default: 'main'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Validate required secrets
+        shell: bash
+        env:
+          SEMINAR_PROD_SCRIPT_ID: ${{ secrets.SEMINAR_PROD_SCRIPT_ID }}
+          SEMINAR_PROD_DEPLOYMENT_ID: ${{ secrets.SEMINAR_PROD_DEPLOYMENT_ID }}
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          set -euo pipefail
+          test -n "$SEMINAR_PROD_SCRIPT_ID" || { echo 'SEMINAR_PROD_SCRIPT_ID is missing'; exit 1; }
+          test -n "$SEMINAR_PROD_DEPLOYMENT_ID" || { echo 'SEMINAR_PROD_DEPLOYMENT_ID is missing'; exit 1; }
+          test -n "$CLASPRC_JSON" || { echo 'CLASPRC_JSON is missing'; exit 1; }
+
+      - name: Checkout seminar source
+        uses: actions/checkout@v4
+        with:
+          repository: Camper-1973/renovation-ai-seminar-survey
+          ref: ${{ inputs.source_ref }}
+          path: seminar
+
+      - name: Capture source SHA
+        id: source
+        shell: bash
+        run: echo "sha=$(git -C seminar rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Assemble exact 4-file payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p deploy
+          cp seminar/appsscript.json deploy/appsscript.json
+          cp seminar/Code.gs deploy/Code.gs
+          cp seminar/Index.html deploy/Index.html
+          cp seminar/Dashboard.html deploy/Dashboard.html
+          actual="$(find deploy -maxdepth 1 -type f -printf '%f\n' | sort)"
+          expected="$(printf '%s\n' Code.gs Dashboard.html Index.html appsscript.json | sort)"
+          test "$actual" = "$expected" || {
+            echo 'Unexpected seminar payload'
+            printf 'actual:\n%s\nexpected:\n%s\n' "$actual" "$expected"
+            exit 1
+          }
+
+      - name: Configure clasp for production Apps Script
+        shell: bash
+        env:
+          SEMINAR_PROD_SCRIPT_ID: ${{ secrets.SEMINAR_PROD_SCRIPT_ID }}
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+          printf '{"scriptId":"%s","rootDir":"."}\n' "$SEMINAR_PROD_SCRIPT_ID" > deploy/.clasp.json
+
+      - name: Install pinned clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Push exact source
+        working-directory: deploy
+        run: clasp push --force
+
+      - name: Update existing Web App deployment
+        working-directory: deploy
+        shell: bash
+        env:
+          SEMINAR_PROD_DEPLOYMENT_ID: ${{ secrets.SEMINAR_PROD_DEPLOYMENT_ID }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          set -euo pipefail
+          clasp update-deployment "$SEMINAR_PROD_DEPLOYMENT_ID" --description "Seminar survey release=$SOURCE_SHA"
+
+      - name: Release summary
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          {
+            echo '## Seminar survey production release'
+            echo "- source: $SOURCE_SHA"
+            echo '- source pushed: yes'
+            echo '- existing /exec deployment updated: yes'
+          } >> "$GITHUB_STEP_SUMMARY"
