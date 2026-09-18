@@ -70,12 +70,19 @@ v0.6.2ではさらに末尾へ `回答ID` を1列追加します。既存38列�
 
 ## GAS側の更新手順
 
-1. リポジトリ付属の更新BATで最新の main を取得し、GASへ反映する
-2. v0.6.2への更新時は、既存スプレッドシートの末尾へ `回答ID` 見出しを追加するためApps Scriptエディタで `setup()` を1回実行する
-3. Apps Scriptの「デプロイ」→「デプロイを管理」→既存デプロイの編集を開く
-4. バージョンを「新バージョン」にして更新する
+別DEV Apps Scriptや更新BATは使用せず、本番Apps Script 1プロジェクトで運用します。
 
-既存デプロイを更新すれば /exec URLとイベント別QRコードは変わりません。新しいデプロイを作る必要はありません。`setup()` は既存回答を削除せず、必要な見出しだけ補完します。
+1. GitHub `main` を更新
+2. `Preview seminar survey on PROD source` が本番GASの未公開ソースへ反映
+3. Apps Scriptのテストデプロイ `/dev` で参加者画面・診断結果・回答保存・ダッシュボードを確認
+4. 問題なければ `Release seminar survey to PROD` を実行
+5. 既存`/exec` Deploymentを更新
+
+既存デプロイを更新するため、`/exec` URLとイベント別QRコードは変わりません。
+
+v0.6.2への初回移行でまだ `回答ID` 見出しがない場合のみ、Apps Scriptエディタで `setup()` を1回実行します。既存回答は削除しません。
+
+初回だけGitHub Environment `production` に `CLASPRC_JSON`、`SEMINAR_PROD_SCRIPT_ID`、`SEMINAR_PROD_DEPLOYMENT_ID` を登録します。
 
 ## 秘密情報
 
