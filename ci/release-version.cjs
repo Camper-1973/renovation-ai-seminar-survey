@@ -14,9 +14,16 @@ async function main(){
  const urls=d=>(d.entryPoints||[]).filter(e=>e.entryPointType==='WEB_APP').map(e=>e.webApp?.url).filter(Boolean).sort();
  assert(urls(before).length>0&&before.deploymentConfig?.versionNumber,'Target is not an existing versioned Web App deployment');
  const deploymentConfig={...before.deploymentConfig,versionNumber:version,description:'CI tested '+process.env.GITHUB_SHA};
- await api(target,{method:'PUT',body:{deploymentConfig}});
- const after=await api(target);
- assert.equal(after.deploymentConfig.versionNumber,version,'Deployment update verification failed');
+ const response=await api(target,{method:'PUT',body:{deploymentConfig}});
+ assert.equal(Number(response.deploymentConfig?.versionNumber),version,'Update response did not select verified version');
+ let after;
+ for(let attempt=0;attempt<10;attempt++){
+  after=await api(target);
+  if(Number(after.deploymentConfig?.versionNumber)===version)break;
+  console.log('Waiting for deployment readback: expected '+version+', observed '+after.deploymentConfig?.versionNumber);
+  await new Promise(resolve=>setTimeout(resolve,3000));
+ }
+ assert.equal(Number(after.deploymentConfig?.versionNumber),version,'Deployment readback did not converge to verified version');
  assert.deepEqual(urls(after),urls(before),'Existing Web App URL changed');
  console.log('PASS: updated existing deployment to verified version '+version+'; URL unchanged; payload '+hash);
 }
