@@ -89,10 +89,13 @@ jobs:
           clasp push --force 2>&1 | tee /tmp/clasp-push.log
           grep -Eq 'Pushed [0-9]+ files|Script is already up to date' /tmp/clasp-push.log
 
-      - name: Require authenticated dev regression evidence
-        run: |
-          echo "::error::Release blocked: authenticated /dev behavioral checks for this exact payload are not automated. Source push alone is not Preview success. See CI_RELEASE_SAFETY.md."
-          exit 1
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: verification
+      - name: Verify remote payload and authenticated dev access
+        run: node verification/ci/live-preview.cjs deploy
+
   release:
     needs: [test, preview]
     if: github.ref == 'refs/heads/main' && needs.test.result == 'success' && needs.preview.result == 'success'
