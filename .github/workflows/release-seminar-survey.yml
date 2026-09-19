@@ -59,6 +59,9 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   preview:
+    outputs:
+      version: ${{ steps.verified.outputs.version }}
+      payload_hash: ${{ steps.verified.outputs.payload_hash }}
     needs: test
     runs-on: ubuntu-latest
     environment: production
@@ -67,6 +70,7 @@ jobs:
         with:
           name: validated-payload
           path: deploy
+
       - name: Configure clasp for production Apps Script
         shell: bash
         env:
@@ -93,7 +97,13 @@ jobs:
         with:
           ref: ${{ github.sha }}
           path: verification
+      - name: Install pinned browser test tools
+        run: npm install --prefix verification/ci --no-save --package-lock=false --ignore-scripts @playwright/test@1.56.1
+      - name: Install Chromium
+        working-directory: verification/ci
+        run: npx playwright install --with-deps chromium
       - name: Verify remote payload and authenticated dev access
+        id: verified
         run: node verification/ci/live-preview.cjs deploy
 
   release:
@@ -106,6 +116,7 @@ jobs:
         with:
           name: validated-payload
           path: deploy
+
       - name: Configure clasp for production Apps Script
         shell: bash
         env:
@@ -120,23 +131,21 @@ jobs:
       - name: Install pinned clasp
         run: npm install --global @google/clasp@3.4.1
 
-      - name: Push exact source
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: verification
+      - name: Refresh existing clasp credential
         working-directory: deploy
-        shell: bash
-        run: |
-          set -euo pipefail
-          clasp push --force 2>&1 | tee /tmp/clasp-push.log
-          grep -Eq 'Pushed [0-9]+ files|Script is already up to date' /tmp/clasp-push.log
+        run: clasp list-versions > /dev/null
 
-      - name: Update existing Web App deployment
-        working-directory: deploy
-        shell: bash
+      - name: Update and verify existing deployment at tested immutable version
         env:
-          SEMINAR_PROD_DEPLOYMENT_ID: ${{ secrets.SEMINAR_PROD_DEPLOYMENT_ID }}
-          SOURCE_SHA: ${{ needs.test.outputs.source_sha }}
-        run: |
-          set -euo pipefail
-          clasp update-deployment "$SEMINAR_PROD_DEPLOYMENT_ID" --description "Seminar survey release=$SOURCE_SHA"
+          TARGET_DEPLOYMENT_ID: ${{ secrets.SEMINAR_PROD_DEPLOYMENT_ID }}
+          VERIFIED_VERSION: ${{ needs.preview.outputs.version }}
+          VERIFIED_HASH: ${{ needs.preview.outputs.payload_hash }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node verification/ci/release-version.cjs deploy
 
   summary:
     if: always()
@@ -148,8 +157,11 @@ jobs:
       TEST: ${{ needs.test.result }}
       PREVIEW: ${{ needs.preview.result }}
       RELEASE: ${{ needs.release.result }}
+      VERIFIED_VERSION: ${{ needs.preview.outputs.version }}
+      PAYLOAD_HASH: ${{ needs.preview.outputs.payload_hash }}
     steps:
-      - run: |
+      - name: Write deployment summary
+        run: |
           {
             echo "## Strict deployment result"
             echo "- Source SHA: $SOURCE_SHA"
@@ -158,5 +170,6 @@ jobs:
             echo "- Preview: $PREVIEW"
             echo "- Existing deployment update: $RELEASE"
             echo "- New deployment creation: prohibited"
-            echo "- Release remains blocked until authenticated dev checks are implemented."
+            echo "- Verified version: $VERIFIED_VERSION"
+            echo "- Payload SHA256: $PAYLOAD_HASH"
           } >> "$GITHUB_STEP_SUMMARY"
