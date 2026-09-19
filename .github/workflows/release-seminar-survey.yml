@@ -1,42 +1,31 @@
-name: Release seminar survey to PROD
+name: Strict test Preview Release - renovation-ai-seminar-survey
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      source_ref:
-        description: 'renovation-ai-seminar-survey ref (branch/tag/SHA)'
-        required: true
-        default: 'main'
-        type: string
+  workflow_call:
 
 permissions:
   contents: read
 
+concurrency:
+  group: strict-production-pipeline
+  cancel-in-progress: false
+
 jobs:
-  release:
+  test:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
+    outputs:
+      source_sha: ${{ steps.source.outputs.sha }}
     steps:
-      - name: Validate required secrets
-        shell: bash
-        env:
-          SEMINAR_PROD_SCRIPT_ID: ${{ secrets.SEMINAR_PROD_SCRIPT_ID }}
-          SEMINAR_PROD_DEPLOYMENT_ID: ${{ secrets.SEMINAR_PROD_DEPLOYMENT_ID }}
-          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
-        run: |
-          set -euo pipefail
-          test -n "$SEMINAR_PROD_SCRIPT_ID" || { echo 'SEMINAR_PROD_SCRIPT_ID is missing'; exit 1; }
-          test -n "$SEMINAR_PROD_DEPLOYMENT_ID" || { echo 'SEMINAR_PROD_DEPLOYMENT_ID is missing'; exit 1; }
-          test -n "$CLASPRC_JSON" || { echo 'CLASPRC_JSON is missing'; exit 1; }
-
       - name: Checkout seminar source
         uses: actions/checkout@v4
         with:
           repository: Camper-1973/renovation-ai-seminar-survey
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_ref || github.sha }}
+          ref: ${{ github.sha }}
           path: seminar
 
       - name: Capture source SHA
@@ -61,6 +50,23 @@ jobs:
             exit 1
           }
 
+      - name: Check exact payload syntax and pure regressions
+        run: node seminar/ci/verify.cjs deploy
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validated-payload
+          path: deploy
+          retention-days: 7
+          if-no-files-found: error
+  preview:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: validated-payload
+          path: deploy
       - name: Configure clasp for production Apps Script
         shell: bash
         env:
@@ -77,26 +83,77 @@ jobs:
 
       - name: Push exact source
         working-directory: deploy
-        run: clasp push --force
+        shell: bash
+        run: |
+          set -euo pipefail
+          clasp push --force 2>&1 | tee /tmp/clasp-push.log
+          grep -Eq 'Pushed [0-9]+ files|Script is already up to date' /tmp/clasp-push.log
+
+      - name: Require authenticated dev regression evidence
+        run: |
+          echo "::error::Release blocked: authenticated /dev behavioral checks for this exact payload are not automated. Source push alone is not Preview success. See CI_RELEASE_SAFETY.md."
+          exit 1
+  release:
+    needs: [test, preview]
+    if: github.ref == 'refs/heads/main' && needs.test.result == 'success' && needs.preview.result == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: validated-payload
+          path: deploy
+      - name: Configure clasp for production Apps Script
+        shell: bash
+        env:
+          SEMINAR_PROD_SCRIPT_ID: ${{ secrets.SEMINAR_PROD_SCRIPT_ID }}
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+          printf '{"scriptId":"%s","rootDir":"."}\n' "$SEMINAR_PROD_SCRIPT_ID" > deploy/.clasp.json
+
+      - name: Install pinned clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Push exact source
+        working-directory: deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          clasp push --force 2>&1 | tee /tmp/clasp-push.log
+          grep -Eq 'Pushed [0-9]+ files|Script is already up to date' /tmp/clasp-push.log
 
       - name: Update existing Web App deployment
         working-directory: deploy
         shell: bash
         env:
           SEMINAR_PROD_DEPLOYMENT_ID: ${{ secrets.SEMINAR_PROD_DEPLOYMENT_ID }}
-          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          SOURCE_SHA: ${{ needs.test.outputs.source_sha }}
         run: |
           set -euo pipefail
           clasp update-deployment "$SEMINAR_PROD_DEPLOYMENT_ID" --description "Seminar survey release=$SOURCE_SHA"
 
-      - name: Release summary
-        shell: bash
-        env:
-          SOURCE_SHA: ${{ steps.source.outputs.sha }}
-        run: |
+  summary:
+    if: always()
+    needs: [test, preview, release]
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_SHA: ${{ github.sha }}
+      SOURCES: ${{ toJSON(needs.test.outputs) }}
+      TEST: ${{ needs.test.result }}
+      PREVIEW: ${{ needs.preview.result }}
+      RELEASE: ${{ needs.release.result }}
+    steps:
+      - run: |
           {
-            echo '## Seminar survey production release'
-            echo "- source: $SOURCE_SHA"
-            echo '- source pushed: yes'
-            echo '- existing /exec deployment updated: yes'
+            echo "## Strict deployment result"
+            echo "- Source SHA: $SOURCE_SHA"
+            echo "- Captured sources: $SOURCES"
+            echo "- Test: $TEST"
+            echo "- Preview: $PREVIEW"
+            echo "- Existing deployment update: $RELEASE"
+            echo "- New deployment creation: prohibited"
+            echo "- Release remains blocked until authenticated dev checks are implemented."
           } >> "$GITHUB_STEP_SUMMARY"
